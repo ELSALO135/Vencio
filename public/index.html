@@ -682,14 +682,7 @@ const VENTAS=[
   {id:10,empresa:4,cliente:"Paula Castillo",concepto:"Cuota limpieza",tipo:"cuota",monto:150000,costo:70000,fecha:"2026-04-30",metodoPago:"efectivo"},
   {id:11,empresa:4,cliente:"Hotel Costa Azul",concepto:"Servicio al contado",tipo:"contado",monto:680000,costo:310000,fecha:"2026-05-22",metodoPago:"transferencia"},
 ];
-const NOTIFS=[
-  {tipo:"danger",empresa:1,msg:"Ana Torres no ha pagado — vencida hace 31 dias.",tiempo:"Hace 4 min"},
-  {tipo:"danger",empresa:3,msg:"Luis Mora lleva 40 dias sin pagar.",tiempo:"Hace 1 hora"},
-  {tipo:"warn",empresa:4,msg:"Camila Rios tiene cuota proxima a vencer el 20 Junio.",tiempo:"Hace 3 horas"},
-  {tipo:"ok",empresa:2,msg:"Cobro automatico Flow: Pedro Soto — exitoso.",tiempo:"Hoy 09:12"},
-  {tipo:"danger",empresa:2,msg:"Sofia Pinto: cuota vencida hace 36 dias.",tiempo:"Ayer 18:45"},
-  {tipo:"ok",empresa:1,msg:"Diego Vega — suscripcion renovada automaticamente.",tiempo:"Ayer 10:00"},
-];
+const NOTIFS=[];
 const MODERADORES=[
   {id:1,nombre:"Valentina Ramos",iniciales:"VR",email:"v.ramos@email.com",empresa:1,rol:"Supervisor",color:"#E6F1FB",colorText:"#185FA5"},
   {id:2,nombre:"Rodrigo Saez",iniciales:"RS",email:"r.saez@email.com",empresa:2,rol:"Moderador",color:"#EAF3DE",colorText:"#3B6D11"},
@@ -1223,23 +1216,6 @@ function navTo(el,sec){
 
 function selPlan(n){CONFIG.plan=n;guardar();document.getElementById("chip-plan").textContent="Plan "+n;document.getElementById("sb-plan").textContent="Plan "+n+" · Cerrar sesion";alert("Plan "+n+" seleccionado.");}
 function guardarConfig(){const n=document.getElementById("cfg-nombre").value.trim();const iva=parseInt(document.getElementById("cfg-iva").value)||19;if(n){CONFIG.nombre=n;CONFIG.iniciales=n.split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase();refreshUser();}CONFIG.ivaPorc=iva;alert("Guardado.");renderAll();}
-
-// ═══════════════════════════
-// ALERTAS VIVAS
-// ═══════════════════════════
-const vivos=[
-  {tipo:"ok",empresa:2,msg:"Cobro automatico Flow: Pedro Soto — exitoso.",tiempo:"Ahora mismo"},
-  {tipo:"warn",empresa:4,msg:"Recordatorio enviado: Paula Castillo — vence en 3 dias.",tiempo:"Ahora mismo"},
-  {tipo:"danger",empresa:3,msg:"Cobro fallido: Luis Mora — tarjeta rechazada. Reintentando.",tiempo:"Ahora mismo"},
-  {tipo:"ok",empresa:1,msg:"WooCommerce: nueva venta detectada — cliente agregado.",tiempo:"Ahora mismo"},
-];
-let vIdx=0;
-setInterval(()=>{
-  NOTIFS.unshift({...vivos[vIdx%vivos.length]});vIdx++;
-  renderAlertas();renderActivity();
-  const nb=document.getElementById("nb-alertas");
-  if(nb){nb.style.transform="scale(1.35)";setTimeout(()=>nb.style.transform="scale(1)",200);}
-},20000);
 
 // ═══ AJUSTES FINALES ═══
 function dRel(n){const d=new Date();d.setDate(d.getDate()+n);return d.toISOString().split('T')[0];}
