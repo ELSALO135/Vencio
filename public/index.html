@@ -1,0 +1,1257 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vencio — Panel</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%23185FA5'/><text y='44' x='8' font-size='42' font-family='sans-serif' font-weight='bold' fill='white'>V</text></svg>">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+/* ── TOKENS ── */
+:root{
+  --bg:#F7F6F3;--surface:#FFF;--surface2:#F0EEE9;
+  --border:rgba(0,0,0,.08);--border2:rgba(0,0,0,.14);
+  --text:#1A1917;--text2:#6B6960;--text3:#A8A49C;
+  --blue:#185FA5;--blue-l:#E6F1FB;--blue-m:#B5D4F4;
+  --green:#3B6D11;--green-l:#EAF3DE;
+  --red:#A32D2D;--red-l:#FCEBEB;
+  --amber:#854F0B;--amber-l:#FAEEDA;
+  --purple:#5A1E91;--purple-l:#EEE4FB;
+  --gold:#7A5800;--gold-l:#FFF8E1;--gold-b:#C8A84B;
+  --r:10px;--rl:14px;
+}
+[data-theme="dark"]{
+  --bg:#0F1117;--surface:#1A1D26;--surface2:#22263A;
+  --border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.14);
+  --text:#E8E6E1;--text2:#9A9590;--text3:#5A5650;
+  --blue-l:#0C2340;--blue-m:#1A3F6F;
+  --green-l:#0A1F05;--red-l:#2A0A0A;--amber-l:#1F1205;--purple-l:#150828;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);font-size:14px}
+
+/* ── LOGIN SCREEN ── */
+.login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;background:var(--bg);padding:1rem}
+.login-box{background:var(--surface);border:.5px solid var(--border);border-radius:var(--rl);padding:2.5rem;width:420px;max-width:100%}
+.login-logo{display:flex;align-items:center;gap:10px;margin-bottom:2rem;justify-content:center}
+.login-logo-ico{width:40px;height:40px;background:var(--blue);border-radius:11px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 12px rgba(24,95,165,.35)}
+.login-title{font-size:22px;font-weight:500;letter-spacing:-.5px;margin-bottom:.35rem;text-align:center}
+.login-sub{font-size:13.5px;color:var(--text2);text-align:center;margin-bottom:1.75rem}
+.fg{margin-bottom:1rem}
+.fl{font-size:12px;font-weight:500;color:var(--text2);display:block;margin-bottom:5px}
+.fi{width:100%;padding:10px 13px;border:.5px solid var(--border2);border-radius:var(--r);font-family:inherit;font-size:14px;color:var(--text);background:var(--surface);outline:none;transition:border .15s}
+.fi:focus{border-color:var(--blue)}
+.btn-login{width:100%;padding:12px;border-radius:var(--r);border:none;background:var(--blue);color:#fff;font-size:15px;font-weight:500;cursor:pointer;font-family:inherit;transition:background .15s}
+.btn-login:hover{background:#0C447C}
+.login-footer{font-size:13px;color:var(--text3);text-align:center;margin-top:1.1rem}
+.login-footer a{color:var(--blue);cursor:pointer;text-decoration:none}
+.login-divider{display:flex;align-items:center;gap:10px;margin:1.25rem 0;font-size:12px;color:var(--text3)}
+.login-divider::before,.login-divider::after{content:"";flex:1;height:.5px;background:var(--border)}
+.login-plan-chip{display:inline-flex;align-items:center;gap:5px;background:var(--blue-l);color:var(--blue);font-size:11.5px;font-weight:500;padding:3px 10px;border-radius:20px;border:.5px solid var(--blue-m);margin-bottom:1.25rem}
+.login-demo-btn{width:100%;padding:10px;border-radius:var(--r);border:.5px solid var(--border2);background:transparent;color:var(--text2);font-size:14px;cursor:pointer;font-family:inherit;transition:all .15s}
+.login-demo-btn:hover{background:var(--surface2);color:var(--text)}
+
+/* ── APP ── */
+.app{display:none;height:100vh;overflow:hidden}
+.app.visible{display:flex}
+
+/* ── MOBILE TOPBAR ── */
+.mobile-topbar{display:none;background:var(--surface);border-bottom:.5px solid var(--border);padding:.75rem 1rem;align-items:center;justify-content:space-between}
+.mobile-menu-btn{background:transparent;border:none;cursor:pointer;color:var(--text);padding:6px}
+.mobile-logo{font-size:16px;font-weight:500;color:var(--text)}
+.mobile-logo span{color:var(--blue)}
+
+/* ── SIDEBAR ── */
+.sidebar{width:235px;min-width:235px;background:var(--surface);border-right:.5px solid var(--border);display:flex;flex-direction:column;transition:transform .25s}
+.sb-logo{padding:1.3rem 1.25rem 1rem;border-bottom:.5px solid var(--border)}
+.logo-wrap{display:flex;align-items:center;gap:10px}
+.logo-ico{width:36px;height:36px;background:var(--blue);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 2px 8px rgba(24,95,165,.35)}
+.logo-txt{font-size:19px;font-weight:500;letter-spacing:-.5px}
+.logo-txt span{color:var(--blue)}
+.logo-sub{font-size:11px;color:var(--text3);margin-top:2px}
+.sb-nav{padding:.6rem .75rem;flex:1;display:flex;flex-direction:column;gap:2px;overflow-y:auto}
+.nav-sec{font-size:10px;font-weight:500;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;padding:.7rem .5rem .35rem}
+.ni{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--r);cursor:pointer;font-size:13.5px;color:var(--text2);transition:all .15s;user-select:none}
+.ni:hover{background:var(--surface2);color:var(--text)}
+.ni.active{background:var(--blue-l);color:var(--blue);font-weight:500}
+.nb{margin-left:auto;background:var(--red-l);color:var(--red);font-size:10px;font-weight:500;padding:1px 7px;border-radius:20px}
+.sb-bot{padding:.9rem .75rem;border-top:.5px solid var(--border)}
+.urow{display:flex;align-items:center;gap:10px;padding:7px 10px;cursor:pointer;border-radius:var(--r)}
+.urow:hover{background:var(--surface2)}
+.av{width:34px;height:34px;border-radius:50%;background:var(--blue-l);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:500;color:var(--blue);flex-shrink:0}
+
+/* ── MAIN ── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.topbar{background:var(--surface);border-bottom:.5px solid var(--border);padding:.85rem 1.75rem;display:flex;align-items:center;justify-content:space-between}
+.tb-l h1{font-size:17px;font-weight:500;letter-spacing:-.3px}
+.tb-l p{font-size:12px;color:var(--text3);margin-top:1px}
+.tb-r{display:flex;align-items:center;gap:10px}
+.live{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--green)}
+.dot{width:8px;height:8px;border-radius:50%;background:#639922;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.85)}}
+.pchip{background:var(--blue-l);color:var(--blue);font-size:11px;font-weight:500;padding:4px 12px;border-radius:20px;border:.5px solid var(--blue-m);display:flex;align-items:center;gap:5px}
+.icon-btn{width:34px;height:34px;border-radius:var(--r);border:.5px solid var(--border2);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text2);position:relative;transition:background .15s;flex-shrink:0}
+.icon-btn:hover{background:var(--surface2)}
+.ndot{position:absolute;top:6px;right:6px;width:7px;height:7px;border-radius:50%;background:var(--red);border:1.5px solid var(--surface)}
+
+/* ── CONTENT ── */
+.content{flex:1;overflow-y:auto;padding:1.75rem}
+.sec{display:none}.sec.active{display:block}
+
+/* ── SECTION HEADER ── */
+.sec-hdr{display:flex;align-items:center;gap:14px;margin-bottom:1.5rem;flex-wrap:wrap}
+.sec-hdr-ico{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sec-hdr-txt{flex:1}
+.sec-hdr-txt h2{font-size:18px;font-weight:500;letter-spacing:-.3px}
+.sec-hdr-txt p{font-size:13px;color:var(--text3);margin-top:2px}
+.sec-hdr-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+/* ── TABS ── */
+.ctabs{display:flex;gap:8px;margin-bottom:1.5rem;flex-wrap:wrap;align-items:center}
+.ctab{padding:6px 16px;border-radius:20px;font-size:12.5px;cursor:pointer;border:.5px solid var(--border2);background:var(--surface);color:var(--text2);transition:all .15s}
+.ctab:hover{background:var(--surface2)}.ctab.active{background:var(--blue);color:#fff;border-color:var(--blue);font-weight:500}
+.currency-sel{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12px}
+.currency-sel select{font-size:12px;border:.5px solid var(--border2);border-radius:var(--r);padding:4px 8px;background:var(--surface);color:var(--text);font-family:inherit;outline:none;cursor:pointer}
+
+/* ── METRICS ── */
+.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:1.5rem}
+.metric{background:var(--surface);border:.5px solid var(--border);border-radius:var(--rl);padding:1.1rem 1.25rem}
+.m-ico{width:32px;height:32px;border-radius:var(--r);display:flex;align-items:center;justify-content:center;font-size:16px;margin-bottom:12px}
+.m-lbl{font-size:12px;color:var(--text3);margin-bottom:4px}
+.m-val{font-size:24px;font-weight:500;letter-spacing:-.5px;line-height:1}
+.m-sub{font-size:11.5px;margin-top:5px}
+
+/* ── BANNER ── */
+.abanner{background:var(--red-l);border:.5px solid #F09595;border-radius:var(--r);padding:11px 16px;display:flex;align-items:center;gap:10px;margin-bottom:1.25rem;font-size:13px;color:var(--red)}
+.alink{margin-left:auto;font-size:12px;font-weight:500;color:var(--red);cursor:pointer;text-decoration:underline;white-space:nowrap}
+
+/* ── LAYOUT ── */
+.two-col{display:grid;grid-template-columns:1fr 330px;gap:16px;margin-bottom:1.5rem}
+.three-col{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:1.5rem}
+
+/* ── CARD / TABLE ── */
+.card{background:var(--surface);border:.5px solid var(--border);border-radius:var(--rl);overflow:hidden}
+.card-pad{padding:1.25rem}
+.ch{padding:.9rem 1.25rem;border-bottom:.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.ct{font-size:13.5px;font-weight:500}.ca{font-size:12px;color:var(--blue);cursor:pointer}
+table{width:100%;border-collapse:collapse;table-layout:fixed}
+th{font-size:11px;font-weight:500;color:var(--text3);padding:9px 12px;text-align:left;border-bottom:.5px solid var(--border);background:var(--surface2);letter-spacing:.03em;text-transform:uppercase}
+td{font-size:13px;padding:10px 12px;border-bottom:.5px solid var(--border);color:var(--text);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--surface2)}
+
+/* ── BADGES ── */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11.5px;font-weight:500}
+.bok{background:var(--green-l);color:var(--green)}
+.blate{background:var(--red-l);color:var(--red)}
+.bwarn{background:var(--amber-l);color:var(--amber)}
+.iva-badge{display:inline-flex;align-items:center;gap:3px;background:var(--purple-l);color:var(--purple);font-size:10.5px;font-weight:500;padding:2px 7px;border-radius:20px;margin-left:5px}
+
+/* ── BUTTONS ── */
+.btn{font-size:12px;padding:5px 12px;border-radius:var(--r);border:.5px solid var(--border2);background:transparent;color:var(--text);cursor:pointer;font-family:inherit;transition:all .15s}
+.btn:hover{background:var(--surface2)}
+.btn-p{background:var(--blue);color:#fff;border-color:var(--blue)}.btn-p:hover{background:#0C447C}
+.btn-sm{font-size:11.5px;padding:4px 10px;border-radius:var(--r);border:.5px solid var(--border2);background:transparent;color:var(--text);cursor:pointer;font-family:inherit;transition:all .15s}
+.btn-sm:hover{background:var(--surface2)}
+
+/* ── ACTIVITY ── */
+.act-list{padding:.4rem 0}
+.act-item{padding:9px 1.25rem;display:flex;align-items:flex-start;gap:10px;border-bottom:.5px solid var(--border)}
+.act-item:last-child{border-bottom:none}
+.act-ico{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;margin-top:1px}
+.act-txt{font-size:12.5px;line-height:1.5;color:var(--text2)}
+.act-time{font-size:11px;color:var(--text3);margin-top:2px}
+
+/* ── PROGRESS ── */
+.pbar{background:var(--surface2);border-radius:20px;height:5px;overflow:hidden;margin-top:5px}
+.pfill{height:100%;border-radius:20px;background:var(--blue)}
+
+/* ── NOTIFS ── */
+.nlist{display:flex;flex-direction:column;gap:10px}
+.notif{background:var(--surface);border:.5px solid var(--border);border-radius:var(--r);padding:12px 16px;display:flex;align-items:flex-start;gap:12px}
+.notif.nd{border-left:3px solid #E24B4A;border-radius:0 var(--r) var(--r) 0}
+.notif.nw{border-left:3px solid #EF9F27;border-radius:0 var(--r) var(--r) 0}
+.n-msg{font-size:13px;color:var(--text);line-height:1.5}
+.n-emp{font-size:11px;color:var(--blue);font-weight:500;margin-top:2px}
+.n-time{font-size:11px;color:var(--text3);margin-top:2px}
+
+/* ── SEMÁFORO ── */
+.semaforo{width:10px;height:10px;border-radius:50%;display:inline-block}
+.sem-green{background:#4CAF50;box-shadow:0 0 5px #4CAF5080}
+.sem-yellow{background:#FFC107;box-shadow:0 0 5px #FFC10780}
+.sem-red{background:#F44336;animation:semP 1.5s infinite;box-shadow:0 0 5px #F4433680}
+@keyframes semP{0%,100%{opacity:1}50%{opacity:.4}}
+.mora-badge{font-size:11px;font-weight:500;padding:2px 8px;border-radius:20px}
+.mora-0{background:var(--green-l);color:var(--green)}
+.mora-warn{background:var(--amber-l);color:var(--amber)}
+.mora-crit{background:var(--red-l);color:var(--red)}
+
+/* ── SCORE ── */
+.score-ring{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:500;border:2.5px solid}
+.score-high{border-color:#4CAF50;color:var(--green);background:var(--green-l)}
+.score-mid{border-color:#FFC107;color:var(--amber);background:var(--amber-l)}
+.score-low{border-color:#F44336;color:var(--red);background:var(--red-l)}
+
+/* ── PLANS ── */
+.pgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:2rem}
+.pc{background:var(--surface);border:.5px solid var(--border);border-radius:var(--rl);padding:1.4rem;display:flex;flex-direction:column}
+.pc.feat{border:2px solid var(--blue)}
+.pc.omni{border:.5px solid var(--gold-b);background:linear-gradient(160deg,#FFFDF5,var(--gold-l))}
+.pname{font-size:16px;font-weight:500}.pdesc{font-size:12px;color:var(--text3);margin-top:2px}
+.pprice{font-size:28px;font-weight:500;letter-spacing:-1px;line-height:1;margin:10px 0 4px}
+.pprice span{font-size:13px;font-weight:400;color:var(--text3)}
+.pdiv{height:.5px;background:var(--border);margin:1rem 0}
+.pf{font-size:13px;color:var(--text2);display:flex;align-items:center;gap:8px;padding:4px 0}
+.pf.no{color:var(--text3)}
+.pbtn{margin-top:auto;padding-top:1.25rem}
+.pbtn button{width:100%;padding:9px;border-radius:var(--r);font-size:13.5px;font-weight:500;cursor:pointer;border:.5px solid var(--blue);background:transparent;color:var(--blue);font-family:inherit;transition:all .15s}
+.pbtn button:hover{background:var(--blue);color:#fff}
+.pbtn button.cur{background:var(--blue-l);color:var(--blue);border-color:var(--blue-m);cursor:default}
+
+/* ── PAY CARDS ── */
+.pay-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:1.5rem}
+.pay-card{background:var(--surface);border:.5px solid var(--border);border-radius:var(--rl);padding:1.25rem;display:flex;flex-direction:column;gap:10px}
+.pay-card.active-pay{border-color:#A8D97A;background:var(--green-l)}
+.pay-ico{width:40px;height:40px;border-radius:var(--r);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.toggle{position:relative;width:36px;height:20px;cursor:pointer}
+.toggle input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;inset:0;background:#ccc;border-radius:20px;transition:.3s}
+.toggle-slider:before{content:"";position:absolute;width:14px;height:14px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.3s}
+.toggle input:checked+.toggle-slider{background:var(--green)}
+.toggle input:checked+.toggle-slider:before{transform:translateX(16px)}
+
+/* ── INTEGRATIONS ── */
+.int-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:1.5rem}
+.int-card{background:var(--surface);border:.5px solid var(--border);border-radius:var(--rl);padding:1.25rem}
+.webhook-box{background:var(--surface2);border:.5px solid var(--border2);border-radius:var(--r);padding:8px 12px;font-size:11px;font-family:monospace;color:var(--text2);margin-top:8px;word-break:break-all}
+
+/* ── MODS ── */
+.mod-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:1.5rem}
+.mod-card{background:var(--surface);border:.5px solid var(--border);border-radius:var(--rl);padding:1.1rem 1.25rem;display:flex;align-items:center;gap:12px}
+
+/* ── REC ── */
+.rec-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:1.5rem}
+.rec-card{background:var(--surface);border:.5px solid var(--border);border-radius:var(--rl);padding:1.25rem}
+.rec-config{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:.75rem}
+.rec-config select,.rec-config input[type=number]{font-size:12px;border:.5px solid var(--border2);border-radius:var(--r);padding:5px 9px;background:var(--surface);color:var(--text);font-family:inherit;outline:none}
+
+/* ── CALENDAR ── */
+.cal-header{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:6px}
+.cal-day-name{text-align:center;font-size:11px;color:var(--text3);font-weight:500;padding:4px 0}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:1rem}
+.cal-day{min-height:52px;border-radius:var(--r);border:.5px solid var(--border);padding:4px 6px;font-size:11px;font-weight:500;color:var(--text2);background:var(--surface);position:relative}
+.cal-day.today{border-color:var(--blue);background:var(--blue-l);color:var(--blue)}
+.cal-day.has-events{cursor:pointer}.cal-day.has-events:hover{background:var(--surface2)}
+.cal-day.empty{background:transparent;border-color:transparent}
+.cal-event{font-size:9.5px;padding:1px 4px;border-radius:4px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cal-ev-ok{background:var(--green-l);color:var(--green)}
+.cal-ev-late{background:var(--red-l);color:var(--red)}
+.cal-ev-pend{background:var(--amber-l);color:var(--amber)}
+
+/* ── FINANZAS ── */
+.fin-card{background:var(--surface);border:.5px solid var(--border);border-radius:var(--rl);padding:1.5rem;margin-bottom:16px}
+.fin-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:1rem}
+.fin-stat-lbl{font-size:11.5px;color:var(--text3);margin-bottom:3px}
+.fin-stat-val{font-size:18px;font-weight:500}
+.fin-bar-row{display:flex;height:10px;border-radius:20px;overflow:hidden;background:var(--surface2);margin-bottom:6px}
+.fin-legend{display:flex;gap:16px;font-size:11.5px;color:var(--text2);flex-wrap:wrap}
+.fin-dot{width:9px;height:9px;border-radius:2px;display:inline-block}
+
+/* ── PORTAL ── */
+.portal-preview{background:linear-gradient(135deg,#1A2F50,var(--blue));border-radius:var(--rl);padding:1.75rem;color:#fff;margin-bottom:1.5rem}
+.portal-link-box{background:rgba(255,255,255,.12);border-radius:var(--r);padding:10px 14px;font-size:12px;font-family:monospace;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+
+/* ── EXPORT ── */
+.export-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:1.5rem}
+.export-card{background:var(--surface);border:.5px solid var(--border);border-radius:var(--rl);padding:1.25rem;display:flex;flex-direction:column;gap:10px}
+
+/* ── MODAL ── */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;align-items:center;justify-content:center}
+.overlay.open{display:flex}
+.modal{background:var(--surface);border-radius:var(--rl);padding:1.75rem;width:500px;max-width:96vw;max-height:92vh;overflow-y:auto;position:relative}
+.modal-t{font-size:16px;font-weight:500;margin-bottom:1.25rem;display:flex;align-items:center;justify-content:space-between}
+.modal-x{cursor:pointer;color:var(--text3)}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.ma{display:flex;gap:10px;justify-content:flex-end;margin-top:1.25rem}
+.dr{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:.5px solid var(--border);font-size:13px}
+.dr:last-child{border-bottom:none}.dl{color:var(--text3)}
+.tl-item{display:flex;gap:12px;padding:8px 0;position:relative}
+.tl-item:not(:last-child)::after{content:"";position:absolute;left:11px;top:28px;bottom:-8px;width:1px;background:var(--border)}
+.tl-dot{width:22px;height:22px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;z-index:1}
+.nota-item{background:var(--amber-l);border:.5px solid #E8C87A;border-radius:var(--r);padding:10px 14px;margin-bottom:8px;font-size:12.5px;line-height:1.5;position:relative}
+.nota-time{font-size:11px;color:var(--amber);margin-top:4px;font-weight:500}
+.nota-del{position:absolute;top:8px;right:10px;cursor:pointer;color:var(--amber);opacity:.6}
+.nota-del:hover{opacity:1}
+.lpo{display:flex;align-items:center;gap:12px;padding:12px 14px;border:.5px solid var(--border2);border-radius:var(--r);cursor:pointer;transition:all .15s;margin-bottom:8px}
+.lpo:hover{background:var(--surface2);border-color:var(--blue)}
+.tipo-cuota{background:var(--blue-l);color:var(--blue);font-size:10.5px;padding:2px 8px;border-radius:20px;font-weight:500}
+.tipo-memb{background:var(--purple-l);color:var(--purple);font-size:10.5px;padding:2px 8px;border-radius:20px;font-weight:500}
+.margin-high{background:var(--green-l);color:var(--green)}
+.margin-mid{background:var(--amber-l);color:var(--amber)}
+.margin-low{background:var(--red-l);color:var(--red)}
+
+/* ── DARK MODE TOGGLE ── */
+.dark-toggle{display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:var(--r);border:.5px solid var(--border2);cursor:pointer;background:transparent;transition:background .15s}
+.dark-toggle:hover{background:var(--surface2)}
+
+/* ── MOBILE SIDEBAR OVERLAY ── */
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:50}
+.sidebar-overlay.open{display:block}
+
+/* ── RESPONSIVE ── */
+@media(max-width:768px){
+  .app.visible{flex-direction:column}
+  .mobile-topbar{display:flex;flex-shrink:0}
+  .sidebar{position:fixed;top:0;left:0;bottom:0;z-index:60;transform:translateX(-100%);width:260px}
+  .sidebar.mobile-open{transform:translateX(0)}
+  .topbar{display:none}
+  .content{padding:1rem}
+  .metrics{grid-template-columns:repeat(2,1fr)}
+  .two-col{grid-template-columns:1fr}
+  .three-col{grid-template-columns:1fr}
+  .pgrid{grid-template-columns:1fr 1fr}
+  .pay-grid{grid-template-columns:1fr}
+  .int-grid{grid-template-columns:1fr}
+  .mod-grid{grid-template-columns:1fr}
+  .rec-grid{grid-template-columns:1fr}
+  .export-grid{grid-template-columns:1fr}
+  .fin-stats{grid-template-columns:repeat(2,1fr)}
+  table{font-size:12px}
+  th,td{padding:7px 8px}
+}
+@media(max-width:480px){
+  .metrics{grid-template-columns:1fr}
+  .pgrid{grid-template-columns:1fr}
+}
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:10px}
+</style>
+</head>
+<body>
+
+<!-- ═══ LOGIN ═══ -->
+<div class="login-screen" id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="login-logo-ico">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 16l4-4 4 4 4-8"/></svg>
+      </div>
+      <span style="font-size:22px;font-weight:500;letter-spacing:-.5px">Vencio</span>
+    </div>
+    <div id="login-view">
+      <div class="login-title">Bienvenido de vuelta</div>
+      <div class="login-sub">Inicia sesión en tu cuenta</div>
+      <div class="fg"><label class="fl">Correo electrónico</label><input class="fi" id="l-email" type="email" placeholder="tu@email.com"></div>
+      <div class="fg"><label class="fl">Contraseña</label><input class="fi" id="l-pass" type="password" placeholder="••••••••"></div>
+      <div style="text-align:right;margin-bottom:1.25rem"><a onclick="alert('Te enviaremos un correo para restablecer tu contraseña.')" style="font-size:13px;color:var(--blue);cursor:pointer">¿Olvidaste tu contraseña?</a></div>
+      <button class="btn-login" onclick="doLogin()">Iniciar sesión</button>
+      <div class="login-divider">o</div>
+      <button class="login-demo-btn" onclick="doDemo()">Entrar con cuenta demo</button>
+      <div class="login-footer" style="margin-top:1rem">¿No tienes cuenta? <a onclick="showRegister()">Regístrate gratis</a></div>
+    </div>
+    <div id="register-view" style="display:none">
+      <div class="login-title">Crea tu cuenta gratis</div>
+      <div class="login-sub">14 días de prueba sin tarjeta de crédito</div>
+      <div class="frow">
+        <div class="fg"><label class="fl">Nombre</label><input class="fi" type="text" placeholder="Juan"></div>
+        <div class="fg"><label class="fl">Apellido</label><input class="fi" type="text" placeholder="Rodríguez"></div>
+      </div>
+      <div class="fg"><label class="fl">Correo electrónico</label><input class="fi" type="email" placeholder="tu@email.com"></div>
+      <div class="fg"><label class="fl">Contraseña</label><input class="fi" type="password" placeholder="Mínimo 8 caracteres"></div>
+      <div class="fg"><label class="fl">Nombre de tu empresa</label><input class="fi" type="text" placeholder="Mi Empresa SpA"></div>
+      <button class="btn-login" onclick="doRegister()">Crear cuenta gratis</button>
+      <div class="login-footer" style="margin-top:1rem">¿Ya tienes cuenta? <a onclick="showLogin()">Inicia sesión</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ APP ═══ -->
+<div class="app" id="app">
+
+  <!-- Mobile overlay -->
+  <div class="sidebar-overlay" id="sb-overlay" onclick="closeMobileSidebar()"></div>
+
+  <!-- Mobile topbar -->
+  <div class="mobile-topbar">
+    <button class="mobile-menu-btn" onclick="openMobileSidebar()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+    <span class="mobile-logo">V<span>encio</span></span>
+    <button class="dark-toggle" onclick="toggleDark()">
+      <svg id="dark-ico-m" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    </button>
+  </div>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sb-logo">
+      <div class="logo-wrap">
+        <div class="logo-ico">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 16l4-4 4 4 4-8"/></svg>
+        </div>
+        <div>
+          <div class="logo-txt">V<span>encio</span></div>
+          <div class="logo-sub">Plataforma financiera</div>
+        </div>
+      </div>
+    </div>
+    <nav class="sb-nav">
+      <div class="nav-sec">Principal</div>
+      <div class="ni active" onclick="navTo(this,'dashboard')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> Dashboard</div>
+      <div class="ni" onclick="navTo(this,'grafico')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> Gráficos</div>
+      <div class="ni" onclick="navTo(this,'finanzas')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg> Finanzas</div>
+      <div class="ni" onclick="navTo(this,'calendario')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Calendario</div>
+      <div class="ni" onclick="navTo(this,'clientes')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Clientes</div>
+      <div class="ni" onclick="navTo(this,'alertas')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> Alertas <span class="nb" id="nb-alertas">3</span></div>
+      <div class="nav-sec">Herramientas</div>
+      <div class="ni" onclick="navTo(this,'recordatorios')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Recordatorios</div>
+      <div class="ni" onclick="navTo(this,'portal')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> Portal cliente</div>
+      <div class="ni" onclick="navTo(this,'exportar')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Exportar</div>
+      <div class="ni" onclick="navTo(this,'pagos')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> Métodos de pago</div>
+      <div class="ni" onclick="navTo(this,'integraciones')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> Integraciones</div>
+      <div class="ni" onclick="navTo(this,'moderadores')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Moderadores</div>
+      <div class="nav-sec">Cuenta</div>
+      <div class="ni" onclick="navTo(this,'planes')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> Planes</div>
+      <div class="ni" onclick="navTo(this,'configuracion')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Configuración</div>
+    </nav>
+    <div class="sb-bot">
+      <div class="urow" onclick="doLogout()">
+        <div class="av" id="av-sb">JR</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" id="sb-nombre">Juan Rodríguez</div>
+          <div style="font-size:11px;color:var(--text3)" id="sb-plan">Plan Pro · Cerrar sesión</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <div class="tb-l"><h1 id="tb-title">Panel principal</h1><p id="tb-sub">Monitoreo en tiempo real</p></div>
+      <div class="tb-r">
+        <div class="live"><div class="dot"></div> En vivo</div>
+        <button class="icon-btn" onclick="navTo(document.querySelector('[onclick*=alertas]'),'alertas')">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <div class="ndot"></div>
+        </button>
+        <button class="dark-toggle" onclick="toggleDark()" title="Modo oscuro (Ctrl+D)">
+          <svg id="dark-ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        </button>
+        <div class="pchip">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          <span id="chip-plan">Plan Pro</span>
+        </div>
+        <div class="av" id="av-top">JR</div>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- DASHBOARD -->
+      <div class="sec active" id="s-dashboard">
+        <div class="ctabs" id="emp-tabs"></div>
+        <div class="metrics" id="metrics-row"></div>
+        <div class="abanner" id="alert-banner"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span id="alert-txt"></span><span class="alink" onclick="navTo(document.querySelector('[onclick*=alertas]'),'alertas')">Ver todas →</span></div>
+        <div class="two-col">
+          <div class="card">
+            <div class="ch"><span class="ct">Pagos y ventas recientes</span><span class="ca" onclick="navTo(document.querySelector('[onclick*=clientes]'),'clientes')">Ver clientes →</span></div>
+            <table><thead><tr><th style="width:22%">Cliente</th><th style="width:9%">Score</th><th style="width:9%">Riesgo</th><th style="width:10%">Mora</th><th style="width:12%">Cuota</th><th style="width:13%">Estado</th><th style="width:25%">Acciones</th></tr></thead><tbody id="t-dashboard"></tbody></table>
+          </div>
+          <div class="card"><div class="ch"><span class="ct">Actividad reciente</span></div><div class="act-list" id="act-list"></div></div>
+        </div>
+      </div>
+
+      <!-- GRAFICOS -->
+      <div class="sec" id="s-grafico">
+        <div class="sec-hdr"><div class="sec-hdr-ico" style="background:#E6F1FB"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#185FA5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 16l4-4 4 4 4-8"/></svg></div><div class="sec-hdr-txt"><h2>Análisis financiero</h2><p>Gráficos de rendimiento y evolución de cobros</p></div></div>
+        <div class="metrics" id="metrics-row2"></div>
+        <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:16px;margin-bottom:1.5rem">
+          <div class="card card-pad"><div style="font-size:13.5px;font-weight:500;margin-bottom:1rem">Cobrado vs Pendiente (últimos 6 meses)</div><canvas id="chartBarras" height="180"></canvas></div>
+          <div class="card card-pad"><div style="font-size:13.5px;font-weight:500;margin-bottom:1rem">Estado de clientes</div><canvas id="chartTorta" height="180"></canvas></div>
+        </div>
+        <div class="card card-pad"><div style="font-size:13.5px;font-weight:500;margin-bottom:1rem">Top clientes por monto acumulado</div><div id="top-clientes"></div></div>
+      </div>
+
+      <!-- FINANZAS -->
+      <div class="sec" id="s-finanzas">
+        <div class="sec-hdr"><div class="sec-hdr-ico" style="background:#EAF3DE"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3B6D11" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg></div><div class="sec-hdr-txt"><h2>Finanzas por empresa</h2><p>Ingresos, costos y ganancia neta de cada negocio</p></div></div>
+        <div class="metrics" id="fin-consolidado"></div>
+        <div id="fin-empresas"></div>
+      </div>
+
+      <!-- CALENDARIO -->
+      <div class="sec" id="s-calendario">
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:1.5rem;flex-wrap:wrap">
+          <div class="sec-hdr-ico" style="background:#FAEEDA"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#854F0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+          <div style="flex:1"><div style="font-size:18px;font-weight:500">Calendario de vencimientos</div><div style="font-size:13px;color:var(--text3)">Vista mensual de todos los próximos vencimientos</div></div>
+          <div style="display:flex;align-items:center;gap:10px"><button class="btn" onclick="calMes(-1)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg></button><span id="cal-mes-label" style="font-size:13.5px;font-weight:500;min-width:120px;text-align:center"></span><button class="btn" onclick="calMes(1)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg></button></div>
+        </div>
+        <div class="card card-pad"><div class="cal-header" id="cal-header"></div><div class="cal-grid" id="cal-grid"></div></div>
+        <div style="display:flex;gap:12px;margin-top:1rem;font-size:12px;align-items:center;flex-wrap:wrap">
+          <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:var(--green-l);display:inline-block"></span>Al día</span>
+          <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:var(--amber-l);display:inline-block"></span>Pendiente</span>
+          <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:var(--red-l);display:inline-block"></span>Vencido</span>
+        </div>
+      </div>
+
+      <!-- CLIENTES -->
+      <div class="sec" id="s-clientes">
+        <div class="sec-hdr">
+          <div class="sec-hdr-ico" style="background:#E6F1FB"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#185FA5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+          <div class="sec-hdr-txt"><h2>Clientes</h2><p>Administra todos tus clientes y suscripciones</p></div>
+          <div class="sec-hdr-actions">
+            <select class="fi" style="width:auto;font-size:12px" id="filtro-tipo" onchange="renderClientes()"><option value="">Todos</option><option value="cuotas">Cuotas</option><option value="membresia">Suscripciones</option></select>
+            <select class="fi" style="width:auto;font-size:12px" id="filtro-estado" onchange="renderClientes()"><option value="">Todos los estados</option><option value="al día">Al día</option><option value="pendiente">Pendiente</option><option value="vencida">Vencida</option></select>
+            <button class="btn btn-p" onclick="abrirModalCliente()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="vertical-align:-2px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Agregar</button>
+          </div>
+        </div>
+        <div class="card"><table><thead><tr><th style="width:20%">Cliente</th><th style="width:8%">Score</th><th style="width:8%">Riesgo</th><th style="width:9%">Mora</th><th style="width:10%">Tipo</th><th style="width:10%">Cuota</th><th style="width:12%">Progreso</th><th style="width:10%">Estado</th><th style="width:13%">Acciones</th></tr></thead><tbody id="t-clientes"></tbody></table></div>
+      </div>
+
+      <!-- ALERTAS -->
+      <div class="sec" id="s-alertas">
+        <div class="sec-hdr"><div class="sec-hdr-ico" style="background:#FCEBEB"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#A32D2D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div><div class="sec-hdr-txt"><h2>Alertas en tiempo real</h2><p>Notificaciones de pagos y vencimientos</p></div><div class="live"><div class="dot"></div> Actualizando</div></div>
+        <div class="nlist" id="nlist"></div>
+      </div>
+
+      <!-- RECORDATORIOS -->
+      <div class="sec" id="s-recordatorios">
+        <div class="sec-hdr"><div class="sec-hdr-ico" style="background:#FFF0C0"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#7A5800" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div class="sec-hdr-txt"><h2>Recordatorios automáticos</h2><p>Configura cuándo y cómo avisar a tus clientes</p></div></div>
+        <div class="rec-grid" id="rec-grid"></div>
+      </div>
+
+      <!-- PORTAL -->
+      <div class="sec" id="s-portal">
+        <div class="sec-hdr"><div class="sec-hdr-ico" style="background:#F0E8FF"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5A1E91" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div><div class="sec-hdr-txt"><h2>Portal de pago para clientes</h2><p>Cada cliente puede ver y pagar sus cuotas con un link único</p></div></div>
+        <div class="portal-preview"><h2 style="font-size:18px;font-weight:500;margin-bottom:.5rem">Portal de pago Vencio</h2><p style="font-size:13px;opacity:.8;margin-bottom:1.25rem">Cada cliente recibe un link único y seguro donde puede ver sus cuotas y pagar en línea.</p><div class="portal-link-box"><span>https://pay.vencio.cl/c/a1b2c3d4</span><button style="background:#fff;color:var(--blue);border:none;border-radius:8px;padding:5px 14px;font-size:12px;font-weight:500;cursor:pointer" onclick="copiarLink(this)">Copiar link</button></div></div>
+        <div class="three-col">
+          <div class="card card-pad"><div style="font-size:13.5px;font-weight:500;margin-bottom:.75rem">Lo que ve el cliente</div><div style="font-size:13px;color:var(--text2);line-height:1.7">Sus cuotas pagadas y pendientes, monto total, fecha de vencimiento y un botón para pagar en el momento.</div></div>
+          <div class="card card-pad"><div style="font-size:13.5px;font-weight:500;margin-bottom:.75rem">Seguridad</div><div style="font-size:13px;color:var(--text2);line-height:1.7">Cada link es único y expira en 30 días. El cliente no puede ver datos de otros clientes.</div></div>
+          <div class="card card-pad"><div style="font-size:13.5px;font-weight:500;margin-bottom:.75rem">Envío automático</div><div style="font-size:13px;color:var(--text2);line-height:1.7">Vencio envía el link automáticamente por WhatsApp o email cuando se acerca el vencimiento.</div></div>
+        </div>
+        <div class="card card-pad"><div style="font-size:13.5px;font-weight:500;margin-bottom:1rem">Enviar portal a un cliente</div><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><select class="fi" style="width:auto" id="portal-sel"></select><button class="btn" style="background:#E8FBF0;color:#25D366;border-color:#A8ECC4" onclick="enviarPortal('WhatsApp')">WhatsApp</button><button class="btn btn-p" onclick="enviarPortal('Email')">Email</button></div></div>
+      </div>
+
+      <!-- EXPORTAR -->
+      <div class="sec" id="s-exportar">
+        <div class="sec-hdr"><div class="sec-hdr-ico" style="background:#E6F1FB"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#185FA5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></div><div class="sec-hdr-txt"><h2>Exportar reportes</h2><p>Descarga reportes en Excel y PDF</p></div></div>
+        <div class="export-grid">
+          <div class="export-card"><div style="font-size:28px">📊</div><div style="font-size:14px;font-weight:500">Resumen general</div><div style="font-size:12px;color:var(--text2);line-height:1.5;flex:1">Todos los clientes con estado, monto y días de mora.</div><button class="btn btn-p" onclick="simExport('Excel - Resumen general')">Exportar Excel</button></div>
+          <div class="export-card"><div style="font-size:28px">📋</div><div style="font-size:14px;font-weight:500">Cuotas vencidas</div><div style="font-size:12px;color:var(--text2);line-height:1.5;flex:1">Lista de clientes con cuotas vencidas, ordenada por mora.</div><button class="btn btn-p" onclick="simExport('Excel - Cuotas vencidas')">Exportar Excel</button></div>
+          <div class="export-card"><div style="font-size:28px">🧾</div><div style="font-size:14px;font-weight:500">Reporte de IVA</div><div style="font-size:12px;color:var(--text2);line-height:1.5;flex:1">Detalle de IVA por cliente y mes. Útil para tu contador.</div><button class="btn btn-p" onclick="simExport('Excel - IVA')">Exportar Excel</button></div>
+          <div class="export-card"><div style="font-size:28px">📄</div><div style="font-size:14px;font-weight:500">Estado de cuenta PDF</div><div style="font-size:12px;color:var(--text2);line-height:1.5;flex:1">PDF individual por cliente con historial de pagos.</div><select class="fi" id="pdf-sel" style="font-size:12px"></select><button class="btn btn-p" onclick="simExport('PDF - Estado de cuenta')">Generar PDF</button></div>
+          <div class="export-card"><div style="font-size:28px">📈</div><div style="font-size:14px;font-weight:500">Reporte financiero</div><div style="font-size:12px;color:var(--text2);line-height:1.5;flex:1">Cobros por mes, tasa de mora y comparativa entre empresas.</div><button class="btn btn-p" onclick="simExport('PDF - Financiero')">Exportar PDF</button></div>
+          <div class="export-card"><div style="font-size:28px">🔄</div><div style="font-size:14px;font-weight:500">Historial completo</div><div style="font-size:12px;color:var(--text2);line-height:1.5;flex:1">Todos los pagos registrados con fecha, monto y método.</div><button class="btn btn-p" onclick="simExport('Excel - Historial')">Exportar Excel</button></div>
+        </div>
+      </div>
+
+      <!-- PAGOS -->
+      <div class="sec" id="s-pagos">
+        <div class="sec-hdr"><div class="sec-hdr-ico" style="background:#EAF3DE"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3B6D11" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></div><div class="sec-hdr-txt"><h2>Métodos de pago</h2><p>Activa o desactiva los métodos disponibles</p></div></div>
+        <div class="pay-grid" id="pay-grid"></div>
+      </div>
+
+      <!-- INTEGRACIONES -->
+      <div class="sec" id="s-integraciones">
+        <div class="sec-hdr"><div class="sec-hdr-ico" style="background:#FAEEDA"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#854F0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div><div class="sec-hdr-txt"><h2>Integraciones</h2><p>Conecta WooCommerce, Shopify, Flow y más</p></div></div>
+        <div class="int-grid" id="int-grid"></div>
+      </div>
+
+      <!-- MODERADORES -->
+      <div class="sec" id="s-moderadores">
+        <div class="sec-hdr"><div class="sec-hdr-ico" style="background:#EEE4FB"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5A1E91" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div class="sec-hdr-txt"><h2>Moderadores y supervisores</h2><p>Gestiona quién puede acceder a cada empresa</p></div><div class="sec-hdr-actions"><button class="btn btn-p" onclick="abrirModalMod()">+ Agregar</button></div></div>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:1.25rem">Los moderadores pueden gestionar clientes de las empresas asignadas, pero no pueden cambiar el plan ni eliminar datos.</p>
+        <div class="mod-grid" id="mod-grid"></div>
+      </div>
+
+      <!-- PLANES -->
+      <div class="sec" id="s-planes">
+        <div class="sec-hdr"><div class="sec-hdr-ico" style="background:#FFF0C0"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#7A5800" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div><div class="sec-hdr-txt"><h2>Elige tu plan</h2><p>Cambia o cancela cuando quieras</p></div></div>
+        <div class="pgrid">
+          <div class="pc"><div><div class="pname">Principal</div><div class="pdesc">Para comenzar</div><div class="pprice">$14 <span>USD/mes</span></div></div><div class="pdiv"></div><div class="pf"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3B6D11" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> 1 empresa</div><div class="pf"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3B6D11" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> 50 clientes</div><div class="pf"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3B6D11" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Semáforo + Score</div><div class="pf no"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A8A49C" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Cobros automáticos</div><div class="pbtn"><button onclick="selPlan('Principal')">Seleccionar</button></div></div>
+          <div class="pc"><div><div class="pname">Plus</div><div class="pdesc">2 negocios</div><div class="pprice">$24 <span>USD/mes</span></div></div><div class="pdiv"></div><div class="pf"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3B6D11" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> 2 empresas</div><div class="pf"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3B6D11" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> 200 clientes</div><div class="pf"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3B6D11" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Cobros automáticos</div><div class="pf"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3B6D11" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> 1 moderador</div><div class="pbtn"><button onclick="selPlan('Plus')">Seleccionar</button></div></div>
+          <div class="pc feat"><div><div style="background:#E6F1FB;color:#185FA5;font-size:10.5px;font-weight:600;padding:2px 9px;border-radius:20px;display:inline-block;margin-bottom:8px">⭐ Popular</div><div class="pname">Pro</div><div class="pdesc">3 negocios</div><div class="pprice">$39 <span>USD/mes</span></div></div><div class="pdiv"></div><div class="pf"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3B6D11" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> 3 empresas</div><div class="pf"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3B6D11" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> 500 clientes</div><div class="pf"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3B6D11" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Email + SMS + WA</div><div class="pf"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3B6D11" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> 3 moderadores</div><div class="pbtn"><button class="cur" id="btn-pro">Plan actual</button></div></div>
+          <div class="pc omni"><div><div style="background:#FFF0C0;color:#7A5800;font-size:10.5px;font-weight:600;padding:2px 9px;border-radius:20px;display:inline-block;margin-bottom:8px;border:.5px solid #C8A84B">∞ Sin límites</div><div class="pname" style="color:#7A5800">Omnibus</div><div class="pdesc" style="color:#A07830">Carteras múltiples</div><div class="pprice" style="color:#7A5800">$69 <span>USD/mes</span></div></div><div class="pdiv" style="background:#E8D8A0"></div><div class="pf" style="color:#5A3E00"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6B8B00" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Empresas ilimitadas</div><div class="pf" style="color:#5A3E00"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6B8B00" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Clientes ilimitados</div><div class="pf" style="color:#5A3E00"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6B8B00" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> API + integraciones</div><div class="pf" style="color:#5A3E00"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6B8B00" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Soporte 24/7</div><div class="pbtn"><button onclick="selPlan('Omnibus')" style="border-color:#C8A84B;color:#7A5800" onmouseover="this.style.background='#C8A84B';this.style.color='#fff'" onmouseout="this.style.background='transparent';this.style.color='#7A5800'">Seleccionar</button></div></div>
+        </div>
+      </div>
+
+      <!-- CONFIGURACION -->
+      <div class="sec" id="s-configuracion">
+        <div class="sec-hdr"><div class="sec-hdr-ico" style="background:#F0EEE9"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6B6960" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div><div class="sec-hdr-txt"><h2>Configuración</h2><p>Ajusta tu cuenta y preferencias</p></div></div>
+        <div class="card card-pad" style="max-width:520px">
+          <div class="fg"><label class="fl">Nombre completo</label><input class="fi" id="cfg-nombre" type="text"></div>
+          <div class="fg"><label class="fl">Correo electrónico</label><input class="fi" id="cfg-email" type="email"></div>
+          <div class="fg"><label class="fl">Moneda predeterminada</label><select class="fi" id="cfg-moneda" onchange="CONFIG.moneda=this.value;monedaActual=this.value;renderAll()"></select></div>
+          <div class="fg"><label class="fl">% IVA aplicable</label><input class="fi" id="cfg-iva" type="number" min="0" max="100"><div style="font-size:11px;color:var(--text3);margin-top:4px">Chile 19% · México 16% · Argentina 21% · España 21% · UK 20% · Arabia Saudita 15%</div></div>
+          <div class="fg"><label class="fl">Modo de interfaz</label>
+            <div style="display:flex;gap:10px;margin-top:6px">
+              <button class="btn" id="btn-light" onclick="setTheme('light')">☀️ Claro</button>
+              <button class="btn btn-p" id="btn-dark" onclick="setTheme('dark')">🌙 Oscuro</button>
+            </div>
+          </div>
+          <button class="btn btn-p" onclick="guardarConfig()">Guardar cambios</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- MODALES -->
+<div class="overlay" id="modal-detalle">
+  <div class="modal" style="width:540px">
+    <div class="modal-t">Ficha del cliente <span class="modal-x" onclick="cerrar('modal-detalle')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span></div>
+    <div style="display:flex;gap:4px;margin-bottom:1.25rem;border-bottom:.5px solid var(--border);padding-bottom:.75rem">
+      <button class="btn-sm" id="dt-info-btn" onclick="detTab('info')">Datos</button>
+      <button class="btn-sm" id="dt-hist-btn" onclick="detTab('hist')">Historial</button>
+      <button class="btn-sm" id="dt-notas-btn" onclick="detTab('notas')">Notas</button>
+    </div>
+    <div id="dt-info"></div><div id="dt-hist" style="display:none"></div><div id="dt-notas" style="display:none"></div>
+    <div class="ma" style="flex-wrap:wrap;gap:8px">
+      <button class="btn" onclick="cerrar('modal-detalle')">Cerrar</button>
+      <button class="btn" style="background:var(--green-l);color:var(--green);border-color:#A8D97A" onclick="enviarLink()">Enviar link</button>
+      <button class="btn btn-p" onclick="marcarPagado()">✓ Marcar pagado</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="modal-cliente">
+  <div class="modal">
+    <div class="modal-t">Agregar cliente <span class="modal-x" onclick="cerrar('modal-cliente')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span></div>
+    <div class="frow"><div class="fg"><label class="fl">Nombre</label><input class="fi" id="f-nombre" type="text" placeholder="Ana Torres"></div><div class="fg"><label class="fl">RUT</label><input class="fi" id="f-rut" type="text" placeholder="12.345.678-9"></div></div>
+    <div class="frow"><div class="fg"><label class="fl">Email</label><input class="fi" id="f-email" type="email" placeholder="cliente@email.com"></div><div class="fg"><label class="fl">Teléfono</label><input class="fi" id="f-tel" type="tel" placeholder="+56 9 1234 5678"></div></div>
+    <div class="frow"><div class="fg"><label class="fl">Empresa</label><select class="fi" id="f-empresa"></select></div><div class="fg"><label class="fl">Tipo de venta</label><select class="fi" id="f-tipo-venta"><option value="servicio">Servicio (sin IVA)</option><option value="producto">Producto (con IVA)</option></select></div></div>
+    <div class="frow"><div class="fg"><label class="fl">Tipo de cobro</label><select class="fi" id="f-tipo-cobro"><option value="cuotas">Cuotas (número fijo)</option><option value="membresia">Suscripción (mensual)</option></select></div><div class="fg"><label class="fl">Método de pago</label><select class="fi" id="f-metodo"></select></div></div>
+    <div class="frow"><div class="fg"><label class="fl">Monto por cuota</label><input class="fi" id="f-monto" type="number" placeholder="150000"></div><div class="fg"><label class="fl">N° de cuotas</label><input class="fi" id="f-cuotas" type="number" placeholder="12"></div></div>
+    <div class="fg"><label class="fl">Fecha primer vencimiento</label><input class="fi" id="f-fecha" type="date"></div>
+    <div class="fg"><label class="fl">Nota inicial (opcional)</label><textarea class="fi" id="f-nota" rows="2" placeholder="Ej: Cliente referido por Diego Vega..." style="resize:none"></textarea></div>
+    <div class="ma"><button class="btn" onclick="cerrar('modal-cliente')">Cancelar</button><button class="btn btn-p" onclick="agregarCliente()">Agregar cliente</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="modal-link">
+  <div class="modal" style="width:360px">
+    <div class="modal-t">Enviar link de cobro <span class="modal-x" onclick="cerrar('modal-link')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span></div>
+    <div class="lpo" onclick="simEnvio('WhatsApp')"><div style="width:36px;height:36px;border-radius:var(--r);background:#E8FBF0;color:#25D366;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px">💬</div><div><div style="font-size:13.5px;font-weight:500">WhatsApp</div><div style="font-size:12px;color:var(--text3)">Link directo al número del cliente</div></div></div>
+    <div class="lpo" onclick="simEnvio('Email')"><div style="width:36px;height:36px;border-radius:var(--r);background:var(--blue-l);color:var(--blue);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px">✉️</div><div><div style="font-size:13.5px;font-weight:500">Email</div><div style="font-size:12px;color:var(--text3)">Link en la bandeja de entrada</div></div></div>
+    <div class="lpo" onclick="simEnvio('SMS')"><div style="width:36px;height:36px;border-radius:var(--r);background:var(--amber-l);color:var(--amber);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px">📱</div><div><div style="font-size:13.5px;font-weight:500">SMS</div><div style="font-size:12px;color:var(--text3)">Mensaje de texto (Plan Pro+)</div></div></div>
+    <div class="ma"><button class="btn" onclick="cerrar('modal-link')">Cancelar</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="modal-mod">
+  <div class="modal" style="width:420px">
+    <div class="modal-t">Agregar moderador <span class="modal-x" onclick="cerrar('modal-mod')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span></div>
+    <div class="frow"><div class="fg"><label class="fl">Nombre</label><input class="fi" id="m-nombre" type="text"></div><div class="fg"><label class="fl">Iniciales</label><input class="fi" id="m-ini" type="text" maxlength="2"></div></div>
+    <div class="fg"><label class="fl">Email</label><input class="fi" id="m-email" type="email"></div>
+    <div class="frow"><div class="fg"><label class="fl">Empresa</label><select class="fi" id="m-empresa"></select></div><div class="fg"><label class="fl">Rol</label><select class="fi" id="m-rol"><option>Moderador</option><option>Supervisor</option></select></div></div>
+    <div class="ma"><button class="btn" onclick="cerrar('modal-mod')">Cancelar</button><button class="btn btn-p" onclick="agregarMod()">Agregar</button></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════
+// DATOS
+// ═══════════════════════════
+const CONFIG={nombre:"Juan Rodriguez",iniciales:"JR",plan:"Pro",moneda:"CLP",ivaPorc:19};
+const MONEDAS={USD:{simbolo:"$",nombre:"USD - Estados Unidos",locale:"en-US"},CLP:{simbolo:"$",nombre:"CLP - Chile",locale:"es-CL"},ARS:{simbolo:"$",nombre:"ARS - Argentina",locale:"es-AR"},MXN:{simbolo:"$",nombre:"MXN - Mexico",locale:"es-MX"},EUR:{simbolo:"€",nombre:"EUR - España/Francia/Alemania",locale:"es-ES"},GBP:{simbolo:"£",nombre:"GBP - Inglaterra",locale:"en-GB"},SAR:{simbolo:"ر.س",nombre:"SAR - Arabia Saudita",locale:"ar-SA"}};
+const TASAS_CLP={USD:0.00105,CLP:1,ARS:1.05,MXN:0.0185,EUR:0.00098,GBP:0.00084,SAR:0.00394};
+const EMPRESAS=[{id:1,nombre:"Constructora Norte"},{id:2,nombre:"Tech Soluciones"},{id:3,nombre:"Materiales Sur"},{id:4,nombre:"Servicios Express"}];
+const CLIENTES=[
+  {id:1,nombre:"Ana Torres",rut:"12.345.678-9",email:"ana@gmail.com",telefono:"+56 9 8123 4567",empresa:1,montoCuota:320000,cuotasPagadas:3,cuotasTotal:12,proximoVenc:"2026-05-10",estado:"vencida",tipoVenta:"servicio",tipo:"cuotas",metodoPago:"transferencia",historial:[{fecha:"2026-02-26",monto:320000,metodo:"transferencia"},{fecha:"2026-03-28",monto:320000,metodo:"transferencia"},{fecha:"2026-04-30",monto:320000,metodo:"transferencia"}],notas:[{texto:"Llamo el martes, prometio pagar el viernes.",fecha:"2026-05-13"}]},
+  {id:2,nombre:"Pedro Soto",rut:"14.567.890-1",email:"pedro@outlook.com",telefono:"+56 9 7234 5678",empresa:2,montoCuota:150000,cuotasPagadas:8,cuotasTotal:10,proximoVenc:"2026-06-15",estado:"al día",tipoVenta:"producto",tipo:"cuotas",metodoPago:"flow",historial:[{fecha:"2026-01-01",monto:150000,metodo:"flow"},{fecha:"2026-02-01",monto:150000,metodo:"flow"},{fecha:"2026-03-01",monto:150000,metodo:"flow"},{fecha:"2026-04-01",monto:150000,metodo:"flow"},{fecha:"2026-05-01",monto:150000,metodo:"flow"}],notas:[]},
+  {id:3,nombre:"Luis Mora",rut:"11.222.333-4",email:"luis@empresa.cl",telefono:"+56 9 6345 6789",empresa:3,montoCuota:890000,cuotasPagadas:1,cuotasTotal:6,proximoVenc:"2026-05-01",estado:"vencida",tipoVenta:"producto",tipo:"cuotas",metodoPago:"tarjeta",historial:[{fecha:"2026-02-25",monto:890000,metodo:"tarjeta"}],notas:[{texto:"Cliente dificil de contactar.",fecha:"2026-05-20"}]},
+  {id:4,nombre:"Camila Rios",rut:"16.789.012-3",email:"camila@gmail.com",telefono:"+56 9 5456 7890",empresa:4,montoCuota:210000,cuotasPagadas:5,cuotasTotal:8,proximoVenc:"2026-06-20",estado:"pendiente",tipoVenta:"servicio",tipo:"membresia",metodoPago:"tarjeta",historial:[{fecha:"2026-01-20",monto:210000,metodo:"tarjeta"},{fecha:"2026-02-20",monto:210000,metodo:"tarjeta"},{fecha:"2026-03-20",monto:210000,metodo:"tarjeta"}],notas:[]},
+  {id:5,nombre:"Diego Vega",rut:"13.456.789-0",email:"diego@hotmail.com",telefono:"+56 9 4567 8901",empresa:1,montoCuota:540000,cuotasPagadas:10,cuotasTotal:10,proximoVenc:"2026-06-10",estado:"al día",tipoVenta:"servicio",tipo:"membresia",metodoPago:"flow",historial:[{fecha:"2026-01-10",monto:540000,metodo:"flow"},{fecha:"2026-02-10",monto:540000,metodo:"flow"},{fecha:"2026-03-10",monto:540000,metodo:"flow"}],notas:[{texto:"Muy buen pagador.",fecha:"2026-04-01"}]},
+  {id:6,nombre:"Sofia Pinto",rut:"15.678.901-2",email:"sofia@gmail.com",telefono:"+56 9 3678 9012",empresa:2,montoCuota:75000,cuotasPagadas:2,cuotasTotal:9,proximoVenc:"2026-05-05",estado:"vencida",tipoVenta:"producto",tipo:"cuotas",metodoPago:"paypal",historial:[{fecha:"2026-03-23",monto:75000,metodo:"paypal"},{fecha:"2026-04-25",monto:75000,metodo:"paypal"}],notas:[]},
+  {id:7,nombre:"Marco Fuentes",rut:"10.111.222-5",email:"marco@corp.cl",telefono:"+56 9 2789 0123",empresa:3,montoCuota:300000,cuotasPagadas:6,cuotasTotal:8,proximoVenc:"2026-06-05",estado:"al día",tipoVenta:"producto",tipo:"cuotas",metodoPago:"tarjeta",historial:[{fecha:"2026-01-05",monto:300000,metodo:"tarjeta"},{fecha:"2026-02-05",monto:300000,metodo:"tarjeta"},{fecha:"2026-03-05",monto:300000,metodo:"tarjeta"}],notas:[]},
+  {id:8,nombre:"Paula Castillo",rut:"17.890.123-6",email:"paula@gmail.com",telefono:"+56 9 1890 1234",empresa:4,montoCuota:150000,cuotasPagadas:3,cuotasTotal:6,proximoVenc:"2026-06-08",estado:"pendiente",tipoVenta:"servicio",tipo:"membresia",metodoPago:"efectivo",historial:[{fecha:"2026-03-31",monto:150000,metodo:"efectivo"},{fecha:"2026-04-30",monto:150000,metodo:"efectivo"}],notas:[]},
+];
+const VENTAS=[
+  {id:1,empresa:1,cliente:"Ana Torres",concepto:"Cuota mensual",tipo:"cuota",monto:320000,costo:180000,fecha:"2026-04-30",metodoPago:"transferencia"},
+  {id:2,empresa:1,cliente:"Diego Vega",concepto:"Suscripcion premium",tipo:"membresia",monto:540000,costo:210000,fecha:"2026-05-10",metodoPago:"flow"},
+  {id:3,empresa:1,cliente:"Carlos Pena",concepto:"Venta al contado",tipo:"contado",monto:1200000,costo:780000,fecha:"2026-05-15",metodoPago:"transferencia"},
+  {id:4,empresa:2,cliente:"Pedro Soto",concepto:"Cuota notebook",tipo:"cuota",monto:150000,costo:95000,fecha:"2026-05-01",metodoPago:"flow"},
+  {id:5,empresa:2,cliente:"Sofia Pinto",concepto:"Cuota perifericos",tipo:"cuota",monto:75000,costo:48000,fecha:"2026-04-25",metodoPago:"paypal"},
+  {id:6,empresa:2,cliente:"Empresa XYZ",concepto:"Venta 10 monitores",tipo:"producto",monto:980000,costo:620000,fecha:"2026-05-20",metodoPago:"transferencia"},
+  {id:7,empresa:3,cliente:"Luis Mora",concepto:"Cuota materiales",tipo:"cuota",monto:890000,costo:610000,fecha:"2026-02-25",metodoPago:"tarjeta"},
+  {id:8,empresa:3,cliente:"Constructora ABC",concepto:"Venta al contado - aridos",tipo:"contado",monto:2100000,costo:1450000,fecha:"2026-05-28",metodoPago:"transferencia"},
+  {id:9,empresa:4,cliente:"Camila Rios",concepto:"Suscripcion mensual",tipo:"membresia",monto:210000,costo:90000,fecha:"2026-03-20",metodoPago:"tarjeta"},
+  {id:10,empresa:4,cliente:"Paula Castillo",concepto:"Cuota limpieza",tipo:"cuota",monto:150000,costo:70000,fecha:"2026-04-30",metodoPago:"efectivo"},
+  {id:11,empresa:4,cliente:"Hotel Costa Azul",concepto:"Servicio al contado",tipo:"contado",monto:680000,costo:310000,fecha:"2026-05-22",metodoPago:"transferencia"},
+];
+const NOTIFS=[
+  {tipo:"danger",empresa:1,msg:"Ana Torres no ha pagado — vencida hace 31 dias.",tiempo:"Hace 4 min"},
+  {tipo:"danger",empresa:3,msg:"Luis Mora lleva 40 dias sin pagar.",tiempo:"Hace 1 hora"},
+  {tipo:"warn",empresa:4,msg:"Camila Rios tiene cuota proxima a vencer el 20 Junio.",tiempo:"Hace 3 horas"},
+  {tipo:"ok",empresa:2,msg:"Cobro automatico Flow: Pedro Soto — exitoso.",tiempo:"Hoy 09:12"},
+  {tipo:"danger",empresa:2,msg:"Sofia Pinto: cuota vencida hace 36 dias.",tiempo:"Ayer 18:45"},
+  {tipo:"ok",empresa:1,msg:"Diego Vega — suscripcion renovada automaticamente.",tiempo:"Ayer 10:00"},
+];
+const MODERADORES=[
+  {id:1,nombre:"Valentina Ramos",iniciales:"VR",email:"v.ramos@email.com",empresa:1,rol:"Supervisor",color:"#E6F1FB",colorText:"#185FA5"},
+  {id:2,nombre:"Rodrigo Saez",iniciales:"RS",email:"r.saez@email.com",empresa:2,rol:"Moderador",color:"#EAF3DE",colorText:"#3B6D11"},
+];
+const METODOS_PAGO={
+  transferencia:{nombre:"Transferencia bancaria",color:"#E6F1FB",colorT:"#185FA5",activo:true,desc:"El cliente transfiere y tu confirmas desde el panel."},
+  tarjeta:{nombre:"Tarjeta credito/debito",color:"#EAF3DE",colorT:"#3B6D11",activo:true,desc:"Cobro automatico con tarjeta via Webpay o Stripe."},
+  flow:{nombre:"Flow / Webpay",color:"#FFF0C0",colorT:"#7A5800",activo:true,desc:"El cliente recibe un link y paga con Webpay, MACH u otros."},
+  efectivo:{nombre:"Efectivo",color:"#F0E8FF",colorT:"#5A1E91",activo:true,desc:"El pago se registra manualmente al recibir efectivo."},
+  paypal:{nombre:"PayPal",color:"#FCEBEB",colorT:"#A32D2D",activo:false,desc:"Para clientes internacionales."},
+};
+const INTEGRACIONES=[
+  {id:"woo",nombre:"WooCommerce",logo:"🛒",activo:true,desc:"Detecta compras en cuotas automaticamente.",webhook:"https://vencio.app/webhook/woo/TU_API_KEY"},
+  {id:"shopify",nombre:"Shopify",logo:"🏪",activo:false,desc:"Conecta Shopify para que cada venta a credito genere cuotas en Vencio.",webhook:"https://vencio.app/webhook/shopify/TU_API_KEY"},
+  {id:"flow",nombre:"Flow.cl",logo:"⚡",activo:true,desc:"Procesa pagos automaticos via Flow en tiempo real.",webhook:"https://vencio.app/webhook/flow/TU_API_KEY"},
+  {id:"wp",nombre:"Webpay",logo:"💳",activo:false,desc:"Integracion directa con Transbank.",webhook:"https://vencio.app/webhook/webpay/TU_API_KEY"},
+  {id:"pp",nombre:"PayPal",logo:"🅿️",activo:false,desc:"Genera links PayPal para clientes internacionales.",webhook:"https://vencio.app/webhook/paypal/TU_API_KEY"},
+  {id:"api",nombre:"API Propia",logo:"🔗",activo:false,desc:"Conecta cualquier sistema externo con la API REST de Vencio.",webhook:"https://vencio.app/api/v1/TU_API_KEY"},
+];
+const RECORDATORIOS=[
+  {id:1,nombre:"Recordatorio previo al vencimiento",desc:"Avisa al cliente X dias antes de que venza su cuota.",canal:"whatsapp",dias:3,activo:true},
+  {id:2,nombre:"Aviso el dia del vencimiento",desc:"Mensaje automatico el mismo dia que vence la cuota.",canal:"email",dias:0,activo:true},
+  {id:3,nombre:"Alerta de mora temprana",desc:"Notificacion si el cliente no pago dentro de los primeros dias.",canal:"sms",dias:2,activo:false},
+  {id:4,nombre:"Recordatorio de mora grave",desc:"Alerta cuando el cliente lleva mas de 7 dias sin pagar.",canal:"whatsapp",dias:7,activo:true},
+];
+
+// ═══════════════════════════
+// LOGIN
+// ═══════════════════════════
+let TOKEN=localStorage.getItem('vencio_token'),DEMO=false,saveT=null;
+async function api(path,method='GET',body){
+  const r=await fetch('/api'+path,{method,headers:{'Content-Type':'application/json',...(TOKEN?{Authorization:'Bearer '+TOKEN}:{})},body:body?JSON.stringify(body):undefined});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(d.error||'Error de conexion');
+  return d;
+}
+function guardar(){
+  if(DEMO||!TOKEN)return;clearTimeout(saveT);
+  saveT=setTimeout(()=>api('/state','PUT',{empresas:EMPRESAS,clientes:CLIENTES,ventas:VENTAS,notifs:NOTIFS,moderadores:MODERADORES,config:CONFIG}).catch(e=>console.error('No se pudo guardar:',e)),400);
+}
+function entrar(user,estado){
+  if(user){CONFIG.nombre=user.nombre;CONFIG.iniciales=user.iniciales||CONFIG.iniciales;if(user.email)document.getElementById('cfg-email').value=user.email;}
+  if(estado){
+    const r=(a,n)=>{a.length=0;a.push(...(n||[]));};
+    r(EMPRESAS,estado.empresas);r(CLIENTES,estado.clientes);r(VENTAS,estado.ventas);r(NOTIFS,estado.notifs);r(MODERADORES,estado.moderadores);
+    if(estado.config)Object.assign(CONFIG,estado.config);
+  }
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app').classList.add('visible');
+  init();refreshUser();renderAll();
+}
+async function sesion(d){TOKEN=d.token;localStorage.setItem('vencio_token',TOKEN);DEMO=false;entrar(d.user,(await api('/state')).estado);}
+async function doLogin(){
+  const email=document.getElementById('l-email').value.trim(),password=document.getElementById('l-pass').value;
+  if(!email||!password)return alert('Ingresa tu correo y contraseña.');
+  try{await sesion(await api('/auth/login','POST',{email,password}));}catch(e){alert(e.message);}
+}
+async function doRegister(){
+  const [n,a,email,password,empresa]=[...document.getElementById('register-view').querySelectorAll('input')].map(x=>x.value.trim());
+  if(!n||!email||!password||!empresa)return alert('Completa nombre, correo, contraseña y empresa.');
+  if(password.length<8)return alert('La contraseña debe tener al menos 8 caracteres.');
+  try{await sesion(await api('/auth/register','POST',{nombre:(n+' '+a).trim(),email,password,empresa}));}catch(e){alert(e.message);}
+}
+function doDemo(){DEMO=true;entrar();}
+async function autoLogin(){
+  if(!TOKEN)return;
+  try{entrar(await api('/auth/profile'),(await api('/state')).estado);}catch(e){localStorage.removeItem('vencio_token');TOKEN=null;}
+}
+function doLogout(){if(confirm('Cerrar sesion?')){localStorage.removeItem('vencio_token');location.reload();}}
+function showRegister(){
+  document.getElementById('login-view').style.display='none';
+  document.getElementById('register-view').style.display='block';
+}
+function showLogin(){
+  document.getElementById('register-view').style.display='none';
+  document.getElementById('login-view').style.display='block';
+}
+
+// ═══════════════════════════
+// DARK MODE
+// ═══════════════════════════
+let isDark=false;
+function toggleDark(){isDark=!isDark;setTheme(isDark?'dark':'light');}
+function setTheme(t){
+  isDark=t==='dark';
+  document.documentElement.setAttribute('data-theme',t);
+  const moonPath='<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+  const sunPath='<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>';
+  const svg=`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${isDark?moonPath:sunPath}</svg>`;
+  ['dark-ico','dark-ico-m'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=isDark?moonPath:sunPath;});document.getElementById('btn-light')?.classList.toggle('btn-p',!isDark);document.getElementById('btn-dark')?.classList.toggle('btn-p',isDark);refreshActive();
+}
+document.addEventListener('keydown',e=>{if(e.ctrlKey&&e.key==='d'){e.preventDefault();toggleDark();}});
+
+// ═══════════════════════════
+// MOBILE SIDEBAR
+// ═══════════════════════════
+function openMobileSidebar(){
+  document.getElementById('sidebar').classList.add('mobile-open');
+  document.getElementById('sb-overlay').classList.add('open');
+}
+function closeMobileSidebar(){
+  document.getElementById('sidebar').classList.remove('mobile-open');
+  document.getElementById('sb-overlay').classList.remove('open');
+}
+
+// ═══════════════════════════
+// UTILIDADES
+// ═══════════════════════════
+let monedaActual=CONFIG.moneda;
+let clienteDetalle=null;
+let calAño=new Date().getFullYear();
+let calMesNum=new Date().getMonth();
+let chartB=null,chartT=null;
+
+function convM(clp){return clp*(TASAS_CLP[monedaActual]||1);}
+function fmt(clp){const val=convM(clp),m=MONEDAS[monedaActual];if(monedaActual==="CLP")return m.simbolo+Math.round(val).toLocaleString("es-CL");return m.simbolo+val.toLocaleString(m.locale,{minimumFractionDigits:2,maximumFractionDigits:2});}
+function fmtF(d){if(!d)return"—";const p=d.split("-");return p[2]+"/"+p[1]+"/"+p[0];}
+function empN(id){const e=EMPRESAS.find(x=>x.id===id);return e?e.nombre:"—";}
+function ivaAmt(m){return m*(CONFIG.ivaPorc/100);}
+function conIva(m){return m+ivaAmt(m);}
+function diasMora(c){if(c.estado!=="vencida"||!c.proximoVenc)return 0;return Math.max(0,Math.floor((new Date()-new Date(c.proximoVenc))/(86400000)));}
+function calcRiesgo(c){const m=diasMora(c);if(m>=7)return 2;if(m>0||c.estado==="vencida")return 1;if(c.estado==="pendiente"&&c.proximoVenc&&Math.ceil((new Date(c.proximoVenc)-new Date())/86400000)<=3)return 1;return 0;}
+function calcScore(c){let s=80;const m=diasMora(c);if(m>30)s-=40;else if(m>7)s-=20;else if(m>0)s-=10;if(c.estado==="al día")s+=15;s+=Math.round(c.cuotasPagadas/c.cuotasTotal*10);return Math.min(100,Math.max(0,s));}
+function scoreHTML(c){const s=calcScore(c);const cls=s>=70?"score-high":s>=40?"score-mid":"score-low";return`<div class="score-ring ${cls}" title="Score: ${s}/100">${s}</div>`;}
+function semHTML(c){const r=calcRiesgo(c);if(r===2)return`<span style="display:flex;align-items:center;gap:5px"><span class="semaforo sem-red"></span><span style="color:var(--red);font-size:11px;font-weight:500">Alto</span></span>`;if(r===1)return`<span style="display:flex;align-items:center;gap:5px"><span class="semaforo sem-yellow"></span><span style="color:var(--amber);font-size:11px;font-weight:500">Medio</span></span>`;return`<span style="display:flex;align-items:center;gap:5px"><span class="semaforo sem-green"></span><span style="color:var(--green);font-size:11px;font-weight:500">Bajo</span></span>`;}
+function moraBadge(c){const d=diasMora(c);if(d===0)return`<span class="mora-badge mora-0">Al dia</span>`;if(d<=7)return`<span class="mora-badge mora-warn">${d}d</span>`;return`<span class="mora-badge mora-crit">${d}d</span>`;}
+function badge(e){if(e==="al día")return`<span class="badge bok">✓ Al dia</span>`;if(e==="vencida")return`<span class="badge blate">⚠ Vencida</span>`;return`<span class="badge bwarn">⏱ Pendiente</span>`;}
+function tipoBadge(t){return t==="membresia"?`<span class="tipo-memb">↻ Suscripcion</span>`:`<span class="tipo-cuota">≡ Cuotas</span>`;}
+function metBadge(m){const map={transferencia:{e:"🏦",l:"Transferencia"},tarjeta:{e:"💳",l:"Tarjeta"},flow:{e:"⚡",l:"Flow"},efectivo:{e:"💵",l:"Efectivo"},paypal:{e:"🅿️",l:"PayPal"}};const d=map[m]||{e:"💳",l:m};return`<span style="font-size:11.5px;color:var(--text2)">${d.e} ${d.l}</span>`;}
+
+// ═══════════════════════════
+// INIT
+// ═══════════════════════════
+function init(){
+  document.getElementById("av-sb").textContent=CONFIG.iniciales;
+  document.getElementById("av-top").textContent=CONFIG.iniciales;
+  document.getElementById("sb-nombre").textContent=CONFIG.nombre;
+  document.getElementById("chip-plan").textContent="Plan "+CONFIG.plan;
+  document.getElementById("cfg-nombre").value=CONFIG.nombre;
+  document.getElementById("cfg-iva").value=CONFIG.ivaPorc;
+  const selCfg=document.getElementById("cfg-moneda");
+  Object.entries(MONEDAS).forEach(([k,v])=>{selCfg.innerHTML+=`<option value="${k}" ${k===CONFIG.moneda?"selected":""}>${v.nombre}</option>`;});
+  EMPRESAS.forEach(e=>{["f-empresa","m-empresa"].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML+=`<option value="${e.id}">${e.nombre}</option>`;});});
+  Object.entries(METODOS_PAGO).forEach(([k,v])=>{if(v.activo){const el=document.getElementById("f-metodo");if(el)el.innerHTML+=`<option value="${k}">${v.nombre}</option>`;}});
+  CLIENTES.forEach(c=>{["portal-sel","pdf-sel"].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML+=`<option value="${c.id}">${c.nombre}</option>`;});});
+}
+
+function renderAll(){guardar();
+  renderTabs();renderMetrics();renderAlertBanner();
+  renderDashTable();renderActivity();renderClientes();
+  renderAlertas();renderRecordatorios();renderPagos();
+  renderIntegraciones();renderMods();refreshActive();
+}
+
+// ═══════════════════════════
+// TABS + MONEDA
+// ═══════════════════════════
+let empFiltro=0;
+function renderTabs(){
+  const tabs=document.getElementById("emp-tabs");if(!tabs)return;tabs.innerHTML="";
+  const all=document.createElement("div");all.className="ctab"+(empFiltro===0?" active":"");all.textContent="Todas";all.onclick=()=>filtrarEmp(0);tabs.appendChild(all);
+  EMPRESAS.forEach(e=>{const t=document.createElement("div");t.className="ctab"+(empFiltro===e.id?" active":"");t.textContent=e.nombre;t.onclick=()=>filtrarEmp(e.id);tabs.appendChild(t);});
+  const wrap=document.createElement("div");wrap.className="currency-sel";wrap.innerHTML=`<span>💱</span><select onchange="cambiarMoneda(this.value)"></select>`;
+  Object.entries(MONEDAS).forEach(([k,v])=>{const o=document.createElement("option");o.value=k;o.textContent=v.nombre;if(k===monedaActual)o.selected=true;wrap.querySelector("select").appendChild(o);});
+  tabs.appendChild(wrap);
+}
+function filtrarEmp(id){empFiltro=id;renderTabs();renderMetrics();renderDashTable();}
+function cambiarMoneda(cod){monedaActual=cod;CONFIG.moneda=cod;renderMetrics();renderDashTable();renderClientes();refreshActive();}
+
+// ═══════════════════════════
+// METRICAS
+// ═══════════════════════════
+function renderMetrics(){
+  const lista=empFiltro===0?CLIENTES:CLIENTES.filter(c=>c.empresa===empFiltro);
+  const alDia=lista.filter(c=>c.estado==="al día").length;
+  const venc=lista.filter(c=>c.estado==="vencida").length;
+  const rRojo=lista.filter(c=>calcRiesgo(c)===2).length;
+  const iva=lista.filter(c=>c.tipoVenta==="producto").reduce((s,c)=>s+ivaAmt(c.montoCuota),0);
+  const el=document.getElementById("metrics-row");if(!el)return;
+  el.innerHTML=`
+    <div class="metric"><div class="m-ico" style="background:var(--blue-l);color:var(--blue)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div class="m-lbl">Total clientes</div><div class="m-val">${lista.length}</div><div class="m-sub" style="color:var(--text3)">${lista.filter(c=>c.tipo==="membresia").length} suscripciones</div></div>
+    <div class="metric"><div class="m-ico" style="background:var(--green-l);color:var(--green)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div><div class="m-lbl">Al dia</div><div class="m-val">${alDia}</div><div class="m-sub" style="color:var(--green)">${lista.length?Math.round(alDia/lista.length*100):0}%</div></div>
+    <div class="metric"><div class="m-ico" style="background:var(--red-l);color:var(--red)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div><div class="m-lbl">Vencidas</div><div class="m-val">${venc}</div><div class="m-sub" style="color:${rRojo>0?"var(--red)":"var(--text3)"}">🔴 ${rRojo} riesgo alto</div></div>
+    <div class="metric"><div class="m-ico" style="background:var(--purple-l);color:var(--purple)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2h16v20l-2-1-2 1-2-1-2 1-2-1-2 1-2-1-2 1V2z"/><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="17.5" r="1.5"/></svg></div><div class="m-lbl">IVA mes</div><div class="m-val" style="font-size:17px">${fmt(iva)}</div><div class="m-sub" style="color:var(--text3)">${CONFIG.ivaPorc}% productos</div></div>`;
+}
+
+// ═══════════════════════════
+// BANNER
+// ═══════════════════════════
+function renderAlertBanner(){
+  const v=CLIENTES.filter(c=>c.estado==="vencida");
+  const b=document.getElementById("alert-banner");if(!b)return;
+  if(!v.length){b.style.display="none";return;}
+  b.style.display="flex";
+  document.getElementById("alert-txt").innerHTML=`<b>${v.length} cliente${v.length>1?"s":""}</b> con cuotas vencidas. Mayor mora: <b>${Math.max(...v.map(c=>diasMora(c)))} dias</b>.`;
+}
+
+// ═══════════════════════════
+// DASHBOARD TABLE
+// ═══════════════════════════
+function renderDashTable(){
+  const lista=(empFiltro===0?CLIENTES:CLIENTES.filter(c=>c.empresa===empFiltro)).slice(0,7);
+  let h="";
+  lista.forEach(c=>{h+=`<tr><td><div style="font-weight:500">${c.nombre}</div><div style="font-size:11px;color:var(--text3)">${empN(c.empresa)}</div></td><td>${scoreHTML(c)}</td><td>${semHTML(c)}</td><td>${moraBadge(c)}</td><td>${fmt(c.montoCuota)}</td><td>${badge(c.estado)}</td><td><div style="display:flex;gap:4px;flex-wrap:wrap"><button class="btn-sm" onclick="verDetalle(${c.id})">Ver</button><button class="btn-sm btn-p" onclick="marcarPagadoId(${c.id})">✓</button></div></td></tr>`;});
+  document.getElementById("t-dashboard").innerHTML=h;
+}
+
+// ═══════════════════════════
+// ACTIVIDAD
+// ═══════════════════════════
+function renderActivity(){
+  const ico={ok:["✓","var(--green-l)","var(--green)"],danger:["!","var(--red-l)","var(--red)"],warn:["⏱","var(--amber-l)","var(--amber)"]};
+  let h="";
+  NOTIFS.slice(0,6).forEach(n=>{const[i,bg,col]=ico[n.tipo];h+=`<div class="act-item"><div class="act-ico" style="background:${bg};color:${col};font-size:12px;font-weight:700">${i}</div><div><div class="act-txt">${n.msg}</div><div class="act-time">${n.tiempo}</div></div></div>`;});
+  document.getElementById("act-list").innerHTML=h;
+}
+
+// ═══════════════════════════
+// CLIENTES
+// ═══════════════════════════
+function renderClientes(){
+  const ft=document.getElementById("filtro-tipo")?.value||"";
+  const fe=document.getElementById("filtro-estado")?.value||"";
+  let lista=CLIENTES;
+  if(ft)lista=lista.filter(c=>c.tipo===ft);
+  if(fe)lista=lista.filter(c=>c.estado===fe);
+  let h="";
+  lista.forEach(c=>{
+    const pct=Math.round(c.cuotasPagadas/c.cuotasTotal*100);
+    h+=`<tr><td><div style="font-weight:500">${c.nombre}</div><div style="font-size:11px;color:var(--text3)">${c.email}</div><div style="font-size:11px;color:var(--text3)">📞 <a href="tel:${c.telefono||""}" style="color:inherit;text-decoration:none">${c.telefono||"—"}</a></div></td><td>${scoreHTML(c)}</td><td>${semHTML(c)}</td><td>${moraBadge(c)}</td><td>${tipoBadge(c.tipo)}</td><td>${fmt(c.montoCuota)}${c.tipoVenta==="producto"?`<span class="iva-badge">IVA</span>`:""}</td><td><div style="font-size:11px;color:var(--text3)">${c.tipo==="membresia"?"∞":c.cuotasPagadas+"/"+c.cuotasTotal}</div><div class="pbar"><div class="pfill" style="width:${c.tipo==="membresia"?100:pct}%"></div></div></td><td>${badge(c.estado)}</td><td><div style="display:flex;gap:4px;flex-wrap:wrap"><button class="btn-sm" onclick="verDetalle(${c.id})">Ver</button><button class="btn-sm btn-p" onclick="marcarPagadoId(${c.id})">✓</button></div></td></tr>`;
+  });
+  document.getElementById("t-clientes").innerHTML=h||`<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:2rem">Sin resultados.</td></tr>`;
+}
+
+// ═══════════════════════════
+// ALERTAS
+// ═══════════════════════════
+function renderAlertas(){
+  const cl={ok:"",danger:"nd",warn:"nw"};
+  const em={ok:"✓",danger:"⚠",warn:"⏱"};
+  const co={ok:"var(--green)",danger:"var(--red)",warn:"var(--amber)"};
+  let h="";
+  NOTIFS.forEach(n=>{h+=`<div class="notif ${cl[n.tipo]}"><div style="font-size:18px;color:${co[n.tipo]};flex-shrink:0;margin-top:1px">${em[n.tipo]}</div><div><div class="n-msg">${n.msg}</div><div class="n-emp">${empN(n.empresa)}</div><div class="n-time">${n.tiempo}</div></div></div>`;});
+  document.getElementById("nlist").innerHTML=h;
+  document.getElementById("nb-alertas").textContent=NOTIFS.filter(n=>n.tipo==="danger").length;
+}
+
+// ═══════════════════════════
+// RECORDATORIOS
+// ═══════════════════════════
+function renderRecordatorios(){
+  let h="";
+  RECORDATORIOS.forEach(r=>{
+    h+=`<div class="rec-card"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem"><div style="font-size:14px;font-weight:500">${r.nombre}</div><label class="toggle"><input type="checkbox" ${r.activo?"checked":""} onchange="RECORDATORIOS.find(x=>x.id===${r.id}).activo=this.checked;renderRecordatorios()"><span class="toggle-slider"></span></label></div><div style="font-size:12.5px;color:var(--text2);line-height:1.6;margin-bottom:.75rem">${r.desc}</div><div class="rec-config"><span style="font-size:12px;color:var(--text2)">Canal:</span><select onchange="RECORDATORIOS.find(x=>x.id===${r.id}).canal=this.value">${["whatsapp","email","sms"].map(c=>`<option value="${c}" ${r.canal===c?"selected":""}>${c==="whatsapp"?"WhatsApp":c==="email"?"Email":"SMS"}</option>`).join("")}</select>${r.dias>0?`<span style="font-size:12px;color:var(--text2)">Dias:</span><input type="number" min="1" max="30" value="${r.dias}" style="width:55px" onchange="RECORDATORIOS.find(x=>x.id===${r.id}).dias=+this.value">`:""}
+    <span style="font-size:11.5px;font-weight:500;color:${r.activo?"var(--green)":"var(--text3)"}">${r.activo?"✓ Activo":"Inactivo"}</span></div></div>`;
+  });
+  document.getElementById("rec-grid").innerHTML=h;
+}
+
+// ═══════════════════════════
+// PAGOS
+// ═══════════════════════════
+function renderPagos(){
+  const icos={transferencia:"🏦",tarjeta:"💳",flow:"⚡",efectivo:"💵",paypal:"🅿️"};
+  let h="";
+  Object.entries(METODOS_PAGO).forEach(([k,v])=>{
+    h+=`<div class="pay-card ${v.activo?"active-pay":""}"><div style="display:flex;align-items:center;gap:10px"><div class="pay-ico" style="background:${v.color};color:${v.colorT};font-size:20px">${icos[k]||"💳"}</div><div style="font-size:14px;font-weight:500">${v.nombre}</div></div><div style="font-size:12px;color:var(--text2);line-height:1.5">${v.desc}</div><div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px"><span style="font-size:12px;color:${v.activo?"var(--green)":"var(--text3)"}">${v.activo?"✓ Activo":"Inactivo"}</span><label class="toggle"><input type="checkbox" ${v.activo?"checked":""} onchange="togglePago('${k}',this.checked)"><span class="toggle-slider"></span></label></div></div>`;
+  });
+  document.getElementById("pay-grid").innerHTML=h;
+}
+function togglePago(k,val){METODOS_PAGO[k].activo=val;renderPagos();}
+
+// ═══════════════════════════
+// INTEGRACIONES
+// ═══════════════════════════
+function renderIntegraciones(){
+  let h="";
+  INTEGRACIONES.forEach(i=>{h+=`<div class="int-card"><div style="font-size:28px;margin-bottom:8px">${i.logo}</div><div style="font-size:14px;font-weight:500;margin-bottom:4px">${i.nombre}</div><div style="font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:12px">${i.desc}</div>${i.activo?`<div class="webhook-box">${i.webhook}</div>`:""}<div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px"><span style="font-size:11.5px;${i.activo?"color:var(--green);font-weight:500":"color:var(--text3)"}">${i.activo?"✓ Conectado":"Sin conectar"}</span><button class="btn ${i.activo?"":"btn-p"} btn-sm" onclick="toggleInt('${i.id}')">${i.activo?"Desconectar":"Conectar"}</button></div></div>`;});
+  document.getElementById("int-grid").innerHTML=h;
+}
+function toggleInt(id){const i=INTEGRACIONES.find(x=>x.id===id);if(!i)return;if(!i.activo){i.activo=true;NOTIFS.unshift({tipo:"ok",empresa:1,msg:`Integracion con ${i.nombre} conectada.`,tiempo:"Ahora mismo"});}else{if(!confirm("Desconectar "+i.nombre+"?"))return;i.activo=false;}renderIntegraciones();renderAlertas();}
+
+// ═══════════════════════════
+// MODS
+// ═══════════════════════════
+function renderMods(){guardar();
+  const cols=[{bg:"#E6F1FB",txt:"#185FA5"},{bg:"#EAF3DE",txt:"#3B6D11"},{bg:"#FAEEDA",txt:"#854F0B"},{bg:"#EEE4FB",txt:"#5A1E91"}];
+  let h="";
+  MODERADORES.forEach((m,i)=>{const c=cols[i%cols.length];h+=`<div class="mod-card"><div style="width:40px;height:40px;border-radius:50%;background:${m.color||c.bg};color:${m.colorText||c.txt};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:500;flex-shrink:0">${m.iniciales}</div><div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:500">${m.nombre}</div><div style="font-size:11px;color:var(--text3)">${m.rol} · ${empN(m.empresa)}</div><div style="font-size:11px;color:var(--text3)">${m.email}</div></div><button class="btn-sm" onclick="eliminarMod(${m.id})" style="color:var(--red);border-color:var(--red-l)">Eliminar</button></div>`;});
+  if(!MODERADORES.length)h=`<div style="color:var(--text3);font-size:13px">Sin moderadores asignados.</div>`;
+  document.getElementById("mod-grid").innerHTML=h;
+}
+function eliminarMod(id){if(confirm("Eliminar?")){ const idx=MODERADORES.findIndex(m=>m.id===id);if(idx>-1)MODERADORES.splice(idx,1);renderMods();}}
+
+// ═══════════════════════════
+// GRAFICOS
+// ═══════════════════════════
+function renderGraficos(){
+  const cobrado=CLIENTES.reduce((s,c)=>s+c.historial.reduce((a,h)=>a+h.monto,0),0);
+  const pending=CLIENTES.filter(c=>c.estado!=="al día").reduce((s,c)=>s+c.montoCuota,0);
+  const avg=Math.round(CLIENTES.reduce((s,c)=>s+calcScore(c),0)/CLIENTES.length);
+  const el2=document.getElementById("metrics-row2");
+  if(el2)el2.innerHTML=`
+    <div class="metric"><div class="m-ico" style="background:var(--green-l);color:var(--green)">💰</div><div class="m-lbl">Total cobrado</div><div class="m-val" style="font-size:17px">${fmt(cobrado)}</div><div class="m-sub" style="color:var(--green)">Acumulado historico</div></div>
+    <div class="metric"><div class="m-ico" style="background:var(--amber-l);color:var(--amber)">⏳</div><div class="m-lbl">Por cobrar</div><div class="m-val" style="font-size:17px">${fmt(pending)}</div><div class="m-sub" style="color:var(--amber)">Pendientes/vencidos</div></div>
+    <div class="metric"><div class="m-ico" style="background:var(--blue-l);color:var(--blue)">⭐</div><div class="m-lbl">Score promedio</div><div class="m-val">${avg}</div><div class="m-sub" style="color:var(--blue)">Indice de pago</div></div>
+    <div class="metric"><div class="m-ico" style="background:var(--purple-l);color:var(--purple)">🏢</div><div class="m-lbl">Empresas activas</div><div class="m-val">${EMPRESAS.length}</div><div class="m-sub" style="color:var(--text3)">Plan ${CONFIG.plan}</div></div>`;
+  const ctx1=document.getElementById("chartBarras");
+  const ctx2=document.getElementById("chartTorta");
+  if(!ctx1||!ctx2)return;
+  if(chartB)chartB.destroy();
+  if(chartT)chartT.destroy();
+  const meses=["Ene","Feb","Mar","Abr","May","Jun"];
+  const darkMode=document.documentElement.getAttribute("data-theme")==="dark";
+  const gridColor=darkMode?"rgba(255,255,255,.08)":"#F0EEE9";
+  const tickColor=darkMode?"#9A9590":"#A8A49C";
+  chartB=new Chart(ctx1,{type:"bar",data:{labels:meses,datasets:[{label:"Cobrado",data:[1200000,980000,1450000,1100000,1680000,1340000].map(v=>convM(v)),backgroundColor:"rgba(59,109,17,.5)",borderColor:"#3B6D11",borderWidth:1.5,borderRadius:5},{label:"Pendiente",data:[320000,450000,210000,560000,380000,490000].map(v=>convM(v)),backgroundColor:"rgba(133,79,11,.4)",borderColor:"#854F0B",borderWidth:1.5,borderRadius:5}]},options:{responsive:true,plugins:{legend:{labels:{font:{family:"DM Sans",size:12},color:tickColor}}},scales:{y:{ticks:{callback:v=>fmt(v/convM(1)),font:{family:"DM Sans",size:11},color:tickColor},grid:{color:gridColor}},x:{grid:{display:false},ticks:{font:{family:"DM Sans",size:11},color:tickColor}}}}});
+  const ad=CLIENTES.filter(c=>c.estado==="al día").length;
+  const pe=CLIENTES.filter(c=>c.estado==="pendiente").length;
+  const ve=CLIENTES.filter(c=>c.estado==="vencida").length;
+  chartT=new Chart(ctx2,{type:"doughnut",data:{labels:["Al dia","Pendiente","Vencida"],datasets:[{data:[ad,pe,ve],backgroundColor:["rgba(59,109,17,.6)","rgba(133,79,11,.6)","rgba(163,45,45,.6)"],borderColor:["#3B6D11","#854F0B","#A32D2D"],borderWidth:2}]},options:{responsive:true,cutout:"65%",plugins:{legend:{position:"bottom",labels:{font:{family:"DM Sans",size:12},color:tickColor}}}}});
+  const top=[...CLIENTES].sort((a,b)=>b.historial.reduce((s,h)=>s+h.monto,0)-a.historial.reduce((s,h)=>s+h.monto,0)).slice(0,5);
+  const maxM=top[0]?.historial.reduce((s,h)=>s+h.monto,0)||1;
+  const tc=document.getElementById("top-clientes");
+  if(!tc)return;
+  let h="";
+  top.forEach((c,i)=>{const tot=c.historial.reduce((s,h)=>s+h.monto,0);const pct=Math.round(tot/maxM*100);h+=`<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px"><div style="font-size:13px;font-weight:500;width:20px;color:var(--text3)">${i+1}</div><div style="font-size:13px;font-weight:500;min-width:120px">${c.nombre}</div><div style="flex:1"><div style="background:var(--surface2);border-radius:20px;height:8px;overflow:hidden"><div style="width:${pct}%;height:100%;background:var(--blue);border-radius:20px"></div></div></div><div style="font-size:13px;font-weight:500;min-width:90px;text-align:right">${fmt(tot)}</div>${scoreHTML(c)}</div>`;});
+  tc.innerHTML=h;
+}
+
+// ═══════════════════════════
+// FINANZAS
+// ═══════════════════════════
+function renderFinanzas(){
+  const iT=VENTAS.reduce((s,v)=>s+v.monto,0);
+  const cT=VENTAS.reduce((s,v)=>s+v.costo,0);
+  const gT=iT-cT;
+  const mT=iT>0?Math.round(gT/iT*100):0;
+  const elC=document.getElementById("fin-consolidado");
+  if(elC)elC.innerHTML=`
+    <div class="metric"><div class="m-ico" style="background:var(--blue-l);color:var(--blue)">📋</div><div class="m-lbl">Ingresos totales</div><div class="m-val" style="font-size:17px">${fmt(iT)}</div><div class="m-sub" style="color:var(--text3)">Todas las empresas</div></div>
+    <div class="metric"><div class="m-ico" style="background:var(--amber-l);color:var(--amber)">🔧</div><div class="m-lbl">Costos totales</div><div class="m-val" style="font-size:17px">${fmt(cT)}</div><div class="m-sub" style="color:var(--text3)">Materiales e insumos</div></div>
+    <div class="metric"><div class="m-ico" style="background:var(--green-l);color:var(--green)">📈</div><div class="m-lbl">Ganancia neta</div><div class="m-val" style="font-size:17px">${fmt(gT)}</div><div class="m-sub" style="color:var(--green)">Consolidado</div></div>
+    <div class="metric"><div class="m-ico" style="background:var(--purple-l);color:var(--purple)">%</div><div class="m-lbl">Margen promedio</div><div class="m-val">${mT}%</div><div class="m-sub" style="color:var(--text3)">Ganancia / ingresos</div></div>`;
+  const TIPO_LABEL={cuota:"Cuotas",membresia:"Suscripciones",contado:"Al contado",producto:"Productos"};
+  const TIPO_COLOR={cuota:"#185FA5",membresia:"#5A1E91",contado:"#3B6D11",producto:"#854F0B"};
+  let h="";
+  EMPRESAS.forEach(emp=>{
+    const v=VENTAS.filter(x=>x.empresa===emp.id);
+    const ing=v.reduce((s,x)=>s+x.monto,0);
+    const cos=v.reduce((s,x)=>s+x.costo,0);
+    const gan=ing-cos;
+    const mar=ing>0?Math.round(gan/ing*100):0;
+    const cls=mar>=40?"margin-high":mar>=20?"margin-mid":"margin-low";
+    const porTipo={};v.forEach(x=>{porTipo[x.tipo]=(porTipo[x.tipo]||0)+x.monto;});
+    let barH="",legH="";
+    if(ing>0){Object.entries(porTipo).forEach(([tipo,monto])=>{const pct=Math.round(monto/ing*100);barH+=`<div style="width:${pct}%;height:100%;background:${TIPO_COLOR[tipo]}"></div>`;legH+=`<span style="display:flex;align-items:center;gap:5px"><span class="fin-dot" style="background:${TIPO_COLOR[tipo]}"></span>${TIPO_LABEL[tipo]} (${fmt(monto)})</span>`;});}
+    h+=`<div class="fin-card"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.1rem;flex-wrap:wrap;gap:8px"><div style="font-size:15px;font-weight:500">${emp.nombre}</div><span class="badge ${cls}">Margen ${mar}%</span></div><div class="fin-stats"><div><div class="fin-stat-lbl">Ingresos</div><div class="fin-stat-val">${fmt(ing)}</div></div><div><div class="fin-stat-lbl">Costos</div><div class="fin-stat-val" style="color:var(--amber)">${fmt(cos)}</div></div><div><div class="fin-stat-lbl">Ganancia neta</div><div class="fin-stat-val" style="color:var(--green)">${fmt(gan)}</div></div><div><div class="fin-stat-lbl">Ventas</div><div class="fin-stat-val">${v.length}</div></div></div><div class="fin-bar-row">${barH||`<div style="width:100%;height:100%;background:var(--border2)"></div>`}</div><div class="fin-legend">${legH||`<span style="color:var(--text3)">Sin ventas registradas</span>`}</div></div>`;
+  });
+  const elE=document.getElementById("fin-empresas");if(elE)elE.innerHTML=h;
+}
+
+// ═══════════════════════════
+// CALENDARIO
+// ═══════════════════════════
+function renderCalendario(){
+  const mesesNombres=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+  const diasNombres=["Lun","Mar","Mie","Jue","Vie","Sab","Dom"];
+  const lbl=document.getElementById("cal-mes-label");if(lbl)lbl.textContent=mesesNombres[calMesNum]+" "+calAño;
+  const header=document.getElementById("cal-header");if(header)header.innerHTML=diasNombres.map(d=>`<div class="cal-day-name">${d}</div>`).join("");
+  const primero=new Date(calAño,calMesNum,1);
+  let ini=primero.getDay();ini=ini===0?6:ini-1;
+  const diasEnMes=new Date(calAño,calMesNum+1,0).getDate();
+  const hoy=new Date();
+  const grid=document.getElementById("cal-grid");if(!grid)return;
+  let h="";
+  for(let i=0;i<ini;i++)h+=`<div class="cal-day empty"></div>`;
+  for(let d=1;d<=diasEnMes;d++){
+    const fs=calAño+"-"+String(calMesNum+1).padStart(2,"0")+"-"+String(d).padStart(2,"0");
+    const esHoy=hoy.getDate()===d&&hoy.getMonth()===calMesNum&&hoy.getFullYear()===calAño;
+    const evs=CLIENTES.filter(c=>c.proximoVenc===fs);
+    let evsH="";
+    evs.forEach(c=>{const cls=c.estado==="al día"?"cal-ev-ok":c.estado==="vencida"?"cal-ev-late":"cal-ev-pend";evsH+=`<div class="cal-event ${cls}">${c.nombre.split(" ")[0]}</div>`;});
+    h+=`<div class="cal-day ${esHoy?"today":""} ${evs.length?"has-events":""}" ${evs.length?`onclick="alert('Vencimientos el ${d}/${calMesNum+1}: '+[${evs.map(c=>"'"+c.nombre+"'").join(",")}].join(', '))"`:""}>
+      <div style="font-size:12px;font-weight:500;margin-bottom:2px">${d}</div>${evsH}
+    </div>`;
+  }
+  grid.innerHTML=h;
+}
+function calMes(dir){calMesNum+=dir;if(calMesNum<0){calMesNum=11;calAño--;}if(calMesNum>11){calMesNum=0;calAño++;}renderCalendario();}
+
+// ═══════════════════════════
+// DETALLE CLIENTE
+// ═══════════════════════════
+function verDetalle(id){const c=CLIENTES.find(x=>x.id===id);if(!c)return;clienteDetalle=c;detTab("info");document.getElementById("modal-detalle").classList.add("open");}
+function detTab(tab){
+  const c=clienteDetalle;if(!c)return;
+  ["info","hist","notas"].forEach(t=>{document.getElementById("dt-"+t).style.display=t===tab?"block":"none";const btn=document.getElementById("dt-"+t+"-btn");if(btn){btn.style.background=t===tab?"var(--blue)":"transparent";btn.style.color=t===tab?"#fff":"var(--text)";btn.style.borderColor=t===tab?"var(--blue)":"var(--border2)";}});
+  if(tab==="info"){
+    const mora=diasMora(c);const tIva=c.tipoVenta==="producto";
+    document.getElementById("dt-info").innerHTML=`
+      <div class="dr"><span class="dl">Cliente</span><b>${c.nombre}</b></div>
+      <div class="dr"><span class="dl">RUT</span>${c.rut||"—"}</div>
+      <div class="dr"><span class="dl">Telefono</span><a href="tel:${c.telefono||""}" style="color:var(--blue);text-decoration:none">${c.telefono||"—"}</a></div>
+      <div class="dr"><span class="dl">Email</span><a href="mailto:${c.email}" style="color:var(--blue);text-decoration:none">${c.email}</a></div>
+      <div class="dr"><span class="dl">Empresa</span>${empN(c.empresa)}</div>
+      <div class="dr"><span class="dl">Score de pagador</span>${scoreHTML(c)}</div>
+      <div class="dr"><span class="dl">Semaforo de riesgo</span>${semHTML(c)}</div>
+      <div class="dr"><span class="dl">Dias de mora</span>${mora===0?`<span style="color:var(--green)">Sin mora</span>`:`<span style="color:var(--red);font-weight:500">${mora} dias</span>`}</div>
+      <div class="dr"><span class="dl">Tipo de cobro</span>${tipoBadge(c.tipo)}</div>
+      <div class="dr"><span class="dl">Metodo de pago</span>${metBadge(c.metodoPago)}</div>
+      <div class="dr"><span class="dl">Cuota neta</span><b>${fmt(c.montoCuota)}</b></div>
+      ${tIva?`<div class="dr"><span class="dl">IVA (${CONFIG.ivaPorc}%)</span><span style="color:var(--purple);font-weight:500">+ ${fmt(ivaAmt(c.montoCuota))}</span></div><div class="dr"><span class="dl">Total c/IVA</span><b style="color:var(--purple)">${fmt(conIva(c.montoCuota))}</b></div>`:""}
+      <div class="dr"><span class="dl">Pagos realizados</span>${c.tipo==="membresia"?"Suscripcion activa":c.cuotasPagadas+" de "+c.cuotasTotal+" cuotas"}</div>
+      <div class="dr"><span class="dl">Prox. vencimiento</span>${fmtF(c.proximoVenc)}</div>
+      <div class="dr"><span class="dl">Estado</span>${badge(c.estado)}</div>
+      ${c.tipo!=="membresia"?`<div style="margin-top:12px"><div style="font-size:12px;color:var(--text3);margin-bottom:4px">Progreso — ${Math.round(c.cuotasPagadas/c.cuotasTotal*100)}%</div><div class="pbar" style="height:8px"><div class="pfill" style="width:${Math.round(c.cuotasPagadas/c.cuotasTotal*100)}%"></div></div></div>`:""}`;
+  }
+  if(tab==="hist"){
+    const hist=[...c.historial].reverse();
+    let h=`<div style="font-size:13px;color:var(--text2);margin-bottom:1rem">Registro de <b>${hist.length} pago${hist.length!==1?"s":""}</b>.</div>`;
+    if(!hist.length)h+=`<div style="color:var(--text3);font-size:13px;text-align:center;padding:1.5rem">Sin pagos registrados aun.</div>`;
+    h+=`<div>`;
+    hist.forEach(p=>{h+=`<div class="tl-item"><div class="tl-dot" style="background:var(--green-l);color:var(--green);font-size:12px">✓</div><div style="flex:1;padding-top:2px"><div style="font-size:13px;font-weight:500">${fmt(p.monto)} via ${p.metodo}</div><div style="font-size:11px;color:var(--text3);margin-top:2px">${fmtF(p.fecha)}</div></div></div>`;});
+    h+=`</div>`;
+    document.getElementById("dt-hist").innerHTML=h;
+  }
+  if(tab==="notas"){
+    let h="";
+    if(!c.notas.length)h+=`<div style="color:var(--text3);font-size:13px;margin-bottom:1rem">Sin notas aun.</div>`;
+    c.notas.forEach((n,i)=>{h+=`<div class="nota-item"><span class="nota-del" onclick="eliminarNota(${c.id},${i})">✕</span>${n.texto}<div class="nota-time">${fmtF(n.fecha)}</div></div>`;});
+    h+=`<div style="display:flex;gap:8px;align-items:flex-end;margin-top:12px"><textarea class="fi" id="nueva-nota" rows="2" placeholder="Escribe una nota..." style="flex:1;resize:none"></textarea><button class="btn btn-p" onclick="agregarNota(${c.id})">Agregar</button></div>`;
+    document.getElementById("dt-notas").innerHTML=h;
+  }
+}
+function agregarNota(cid){const txt=document.getElementById("nueva-nota")?.value.trim();if(!txt)return;const c=CLIENTES.find(x=>x.id===cid);if(!c)return;c.notas.unshift({texto:txt,fecha:new Date().toISOString().split("T")[0]});guardar();detTab("notas");}
+function eliminarNota(cid,idx){const c=CLIENTES.find(x=>x.id===cid);if(!c)return;c.notas.splice(idx,1);guardar();detTab("notas");}
+function enviarLink(){cerrar("modal-detalle");document.getElementById("modal-link").classList.add("open");}
+function simEnvio(canal){const c=clienteDetalle;if(!c)return;cerrar("modal-link");NOTIFS.unshift({tipo:"ok",empresa:c.empresa,msg:`Link de cobro enviado via ${canal} a ${c.nombre}.`,tiempo:"Ahora mismo"});renderAlertas();renderActivity();alert("✓ Link enviado por "+canal+" a "+c.nombre);}
+function marcarPagado(){if(clienteDetalle)marcarPagadoId(clienteDetalle.id);cerrar("modal-detalle");}
+function marcarPagadoId(id){
+  const c=CLIENTES.find(x=>x.id===id);if(!c)return;
+  const memb=c.tipo==="membresia";
+  if(!memb&&c.cuotasPagadas>=c.cuotasTotal)return;
+  if(!memb)c.cuotasPagadas++;
+  c.historial.push({fecha:dRel(0),monto:c.montoCuota,metodo:c.metodoPago});
+  const completa=!memb&&c.cuotasPagadas>=c.cuotasTotal;
+  if(!completa&&c.proximoVenc){const d=new Date(c.proximoVenc+"T12:00:00");d.setMonth(d.getMonth()+1);c.proximoVenc=d.toISOString().split("T")[0];}
+  const dias=c.proximoVenc?Math.ceil((new Date(c.proximoVenc)-new Date())/86400000):99;
+  c.estado=completa||dias>7?"al día":dias>=0?"pendiente":"vencida";
+  NOTIFS.unshift({tipo:"ok",empresa:c.empresa,msg:`Pago registrado: ${c.nombre} — ${fmt(c.montoCuota)}.`,tiempo:"Ahora mismo"});
+  renderAll();
+}
+
+// ═══════════════════════════
+// MODALES
+// ═══════════════════════════
+function abrirModalCliente(){document.getElementById("modal-cliente").classList.add("open");}
+function abrirModalMod(){document.getElementById("modal-mod").classList.add("open");}
+function cerrar(id){document.getElementById(id).classList.remove("open");}
+function agregarCliente(){
+  const nombre=document.getElementById("f-nombre").value.trim();
+  const email=document.getElementById("f-email").value.trim();
+  const monto=parseFloat(document.getElementById("f-monto").value)||0;
+  const cuotas=parseInt(document.getElementById("f-cuotas").value)||1;
+  if(!nombre||!email||!monto){alert("Completa nombre, email y monto.");return;}
+  const nota=document.getElementById("f-nota").value.trim();
+  const hoy=new Date().toISOString().split("T")[0];
+  CLIENTES.push({id:Date.now(),nombre,rut:document.getElementById("f-rut").value.trim(),email,telefono:document.getElementById("f-tel").value.trim(),empresa:parseInt(document.getElementById("f-empresa").value),tipoVenta:document.getElementById("f-tipo-venta").value,tipo:document.getElementById("f-tipo-cobro").value,metodoPago:document.getElementById("f-metodo").value,montoCuota:monto,cuotasPagadas:0,cuotasTotal:cuotas,proximoVenc:document.getElementById("f-fecha").value,estado:"pendiente",historial:[],notas:nota?[{texto:nota,fecha:hoy}]:[]});
+  cerrar("modal-cliente");
+  ["f-nombre","f-rut","f-email","f-tel","f-monto","f-cuotas","f-fecha","f-nota"].forEach(id=>document.getElementById(id).value="");
+  renderAll();
+}
+function agregarMod(){
+  const nombre=document.getElementById("m-nombre").value.trim();
+  const email=document.getElementById("m-email").value.trim();
+  const ini=document.getElementById("m-ini").value.trim().toUpperCase();
+  if(!nombre||!email||!ini){alert("Completa todos los campos.");return;}
+  const cols=[{bg:"#E6F1FB",txt:"#185FA5"},{bg:"#EAF3DE",txt:"#3B6D11"},{bg:"#FAEEDA",txt:"#854F0B"},{bg:"#EEE4FB",txt:"#5A1E91"}];
+  const c=cols[MODERADORES.length%cols.length];
+  MODERADORES.push({id:Date.now(),nombre,iniciales:ini.slice(0,2),email,empresa:parseInt(document.getElementById("m-empresa").value),rol:document.getElementById("m-rol").value,color:c.bg,colorText:c.txt});
+  cerrar("modal-mod");["m-nombre","m-ini","m-email"].forEach(id=>document.getElementById(id).value="");renderMods();
+}
+function enviarPortal(canal){const sel=document.getElementById("portal-sel");const c=CLIENTES.find(x=>x.id===parseInt(sel?.value));if(!c){alert("Selecciona un cliente.");return;}alert("✓ Portal enviado por "+canal+" a "+c.nombre);}
+function descargarCSV(nombre,filas){const csv='\ufeff'+filas.map(f=>f.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(';')).join('\r\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download=nombre+'.csv';document.body.appendChild(a);a.click();a.remove();}
+function simExport(tipo){
+  const hoy=dRel(0),H=['Cliente','Empresa','Estado','Dias de mora','Monto cuota (CLP)','Cuotas','Prox. vencimiento'];
+  const base=c=>[c.nombre,empN(c.empresa),c.estado,diasMora(c),c.montoCuota,c.cuotasPagadas+'/'+c.cuotasTotal,c.proximoVenc];
+  if(tipo.includes('Resumen'))return descargarCSV('resumen-'+hoy,[H,...CLIENTES.map(base)]);
+  if(tipo.includes('vencidas'))return descargarCSV('vencidas-'+hoy,[H,...CLIENTES.filter(c=>c.estado==='vencida').sort((a,b)=>diasMora(b)-diasMora(a)).map(base)]);
+  if(tipo.includes('IVA'))return descargarCSV('iva-'+hoy,[['Cliente','Neto','IVA','Total'],...CLIENTES.filter(c=>c.tipoVenta==='producto').map(c=>[c.nombre,c.montoCuota,Math.round(ivaAmt(c.montoCuota)),Math.round(conIva(c.montoCuota))])]);
+  if(tipo.includes('Historial'))return descargarCSV('historial-'+hoy,[['Cliente','Fecha','Monto','Metodo'],...CLIENTES.flatMap(c=>c.historial.map(p=>[c.nombre,p.fecha,p.monto,p.metodo]))]);
+  let filas,titulo;
+  if(tipo.includes('Estado')){const c=CLIENTES.find(x=>x.id===parseInt(document.getElementById('pdf-sel').value));if(!c)return;filas=[['Fecha','Monto','Metodo'],...c.historial.map(p=>[fmtF(p.fecha),fmt(p.monto),p.metodo])];titulo='Estado de cuenta — '+c.nombre;}
+  else{filas=[['Empresa','Ingresos','Costos','Ganancia'],...EMPRESAS.map(e=>{const v=VENTAS.filter(x=>x.empresa===e.id),i=v.reduce((s,x)=>s+x.monto,0),k=v.reduce((s,x)=>s+x.costo,0);return[e.nombre,fmt(i),fmt(k),fmt(i-k)];})];titulo='Reporte financiero';}
+  const w=window.open('','_blank');if(!w){alert('Permite ventanas emergentes para generar el PDF.');return;}
+  w.document.write('<title>'+titulo+'</title><body style="font-family:sans-serif;padding:24px"><h2>'+titulo+'</h2><table border="1" cellpadding="6" style="border-collapse:collapse;width:100%">'+filas.map((f,i)=>'<tr>'+f.map(v=>i?'<td>'+v+'</td>':'<th>'+v+'</th>').join('')+'</tr>').join('')+'</table>');
+  w.document.close();w.print();
+}
+
+// ═══════════════════════════
+// NAVEGACION
+// ═══════════════════════════
+const TB={
+  dashboard:["Panel principal","Monitoreo en tiempo real de todas tus empresas"],
+  grafico:["Analisis financiero","Graficos de rendimiento y evolucion de cobros"],
+  finanzas:["Finanzas por empresa","Ingresos, costos y ganancia neta de cada negocio"],
+  calendario:["Calendario de vencimientos","Vista mensual de todos los proximos vencimientos"],
+  clientes:["Clientes","Administra todos tus clientes y suscripciones"],
+  alertas:["Alertas","Notificaciones en tiempo real de pagos y vencimientos"],
+  recordatorios:["Recordatorios automaticos","Configura cuando y como avisar a tus clientes"],
+  portal:["Portal de pago","Link de autoservicio para que tus clientes paguen en linea"],
+  exportar:["Exportar reportes","Descarga reportes en Excel y PDF"],
+  pagos:["Metodos de pago","Activa o desactiva los metodos disponibles"],
+  integraciones:["Integraciones","Conecta WooCommerce, Shopify, Flow y mas"],
+  moderadores:["Moderadores","Gestiona supervisores y moderadores por empresa"],
+  planes:["Planes","Elige el plan que mejor se adapta a tu negocio"],
+  configuracion:["Configuracion","Ajusta tu cuenta y preferencias"],
+};
+function navTo(el,sec){
+  document.querySelectorAll(".ni").forEach(x=>x.classList.remove("active"));if(el)el.classList.add("active");
+  document.querySelectorAll(".sec").forEach(x=>x.classList.remove("active"));const s=document.getElementById("s-"+sec);if(s)s.classList.add("active");
+  const info=TB[sec]||["",""];
+  document.getElementById("tb-title").textContent=info[0];
+  document.getElementById("tb-sub").textContent=info[1];
+  if(sec==="grafico")setTimeout(()=>renderGraficos(),80);
+  if(sec==="finanzas")renderFinanzas();
+  if(sec==="calendario")renderCalendario();
+  closeMobileSidebar();
+}
+
+function selPlan(n){CONFIG.plan=n;guardar();document.getElementById("chip-plan").textContent="Plan "+n;document.getElementById("sb-plan").textContent="Plan "+n+" · Cerrar sesion";alert("Plan "+n+" seleccionado.");}
+function guardarConfig(){const n=document.getElementById("cfg-nombre").value.trim();const iva=parseInt(document.getElementById("cfg-iva").value)||19;if(n){CONFIG.nombre=n;CONFIG.iniciales=n.split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase();refreshUser();}CONFIG.ivaPorc=iva;alert("Guardado.");renderAll();}
+
+// ═══════════════════════════
+// ALERTAS VIVAS
+// ═══════════════════════════
+const vivos=[
+  {tipo:"ok",empresa:2,msg:"Cobro automatico Flow: Pedro Soto — exitoso.",tiempo:"Ahora mismo"},
+  {tipo:"warn",empresa:4,msg:"Recordatorio enviado: Paula Castillo — vence en 3 dias.",tiempo:"Ahora mismo"},
+  {tipo:"danger",empresa:3,msg:"Cobro fallido: Luis Mora — tarjeta rechazada. Reintentando.",tiempo:"Ahora mismo"},
+  {tipo:"ok",empresa:1,msg:"WooCommerce: nueva venta detectada — cliente agregado.",tiempo:"Ahora mismo"},
+];
+let vIdx=0;
+setInterval(()=>{
+  NOTIFS.unshift({...vivos[vIdx%vivos.length]});vIdx++;
+  renderAlertas();renderActivity();
+  const nb=document.getElementById("nb-alertas");
+  if(nb){nb.style.transform="scale(1.35)";setTimeout(()=>nb.style.transform="scale(1)",200);}
+},20000);
+
+// ═══ AJUSTES FINALES ═══
+function dRel(n){const d=new Date();d.setDate(d.getDate()+n);return d.toISOString().split('T')[0];}
+const OFFS={1:-31,2:15,3:-40,4:20,5:10,6:-36,7:6,8:8};
+CLIENTES.forEach(c=>{if(OFFS[c.id]!==undefined)c.proximoVenc=dRel(OFFS[c.id]);});
+function refreshUser(){['av-sb','av-top'].forEach(id=>document.getElementById(id).textContent=CONFIG.iniciales);document.getElementById('sb-nombre').textContent=CONFIG.nombre;document.getElementById('cfg-nombre').value=CONFIG.nombre;}
+function refreshActive(){const s=document.querySelector('.sec.active')?.id;if(s==='s-grafico')renderGraficos();if(s==='s-finanzas')renderFinanzas();if(s==='s-calendario')renderCalendario();}
+function copiarLink(b){const t='https://pay.vencio.cl/c/a1b2c3d4';Promise.resolve(navigator.clipboard&&navigator.clipboard.writeText(t)).catch(()=>{}).finally(()=>{b.textContent='¡Copiado!';setTimeout(()=>b.textContent='Copiar link',1500);});}
+autoLogin();
+document.getElementById('f-fecha').value=dRel(30);
+document.getElementById('cfg-email').value='juan.rodriguez@email.com';
+setTheme('light');
+</script>
+</body>
+</html>
