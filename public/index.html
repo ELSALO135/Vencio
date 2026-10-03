@@ -732,7 +732,7 @@ function entrar(user,estado){
   }
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').classList.add('visible');
-  init();refreshUser();renderAll();
+  init();refreshUser();renderAll();revisarPago();
 }
 async function sesion(d){TOKEN=d.token;localStorage.setItem('vencio_token',TOKEN);DEMO=false;entrar(d.user,(await api('/state')).estado);}
 async function doLogin(){
@@ -1214,7 +1214,18 @@ function navTo(el,sec){
   closeMobileSidebar();
 }
 
-function selPlan(n){CONFIG.plan=n;guardar();document.getElementById("chip-plan").textContent="Plan "+n;document.getElementById("sb-plan").textContent="Plan "+n+" · Cerrar sesion";alert("Plan "+n+" seleccionado.");}
+function setPlanUI(n){CONFIG.plan=n;document.getElementById("chip-plan").textContent="Plan "+n;document.getElementById("sb-plan").textContent="Plan "+n+" · Cerrar sesion";}
+async function selPlan(n){
+  if(DEMO||!TOKEN){setPlanUI(n);guardar();alert("Plan "+n+" seleccionado.");return;}
+  try{const d=await api('/pagos/iniciar','POST',{plan:n});location.href=d.url;}catch(e){alert(e.message);}
+}
+async function revisarPago(){
+  const q=new URLSearchParams(location.search).get('pago');if(!q||DEMO||!TOKEN)return;
+  history.replaceState(null,'',location.pathname);
+  if(q==='ok'){try{const d=await api('/pagos');if(d.plan)setPlanUI(d.plan);}catch(e){}alert('✓ Pago recibido. Tu plan fue activado.');}
+  else if(q==='pendiente')alert('Tu pago está pendiente de confirmación. Se activará apenas Flow lo confirme.');
+  else alert('El pago no se completó. Puedes intentarlo de nuevo.');
+}
 function guardarConfig(){const n=document.getElementById("cfg-nombre").value.trim();const iva=parseInt(document.getElementById("cfg-iva").value)||19;if(n){CONFIG.nombre=n;CONFIG.iniciales=n.split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase();refreshUser();}CONFIG.ivaPorc=iva;alert("Guardado.");renderAll();}
 
 // ═══ AJUSTES FINALES ═══
