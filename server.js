@@ -52,6 +52,26 @@ const limitar = (max, ventanaMs) => (req, res, next) => {
 };
 setInterval(() => { const a = Date.now(); for (const [k, v] of intentos) if (a > v.reset) intentos.delete(k); }, 600000).unref();
 
+// ── Flow: comercios asociados y cobro automático a los clientes de cada empresa ──
+// IMPORTANTE: para que el dinero llegue directo a cada empresa (en vez de a tu cuenta),
+// tu cuenta Flow debe estar habilitada como "comercio integrador". Pídelo a soporte de Flow
+// antes de usar esto en producción; en sandbox normalmente ya viene habilitado para pruebas.
+
+// Crea el comercio asociado de un usuario en Flow (una vez por usuario). No bloquea el registro si falla.
+const crearComercioFlow = async (userId, nombre) => {
+  if (!FLOW_KEY || !FLOW_SECRET) return;
+  try {
+    const f = await flowCall('POST', '/merchant/create', {
+      id: 'VENCIO-' + userId, name: (nombre || 'Empresa').slice(0, 60), url: APP_URL
+    });
+    await pool.query('UPDATE users SET flow_merchant_id=$1, flow_merchant_estado=$2 WHERE id=$3',
+      [f.id || ('VENCIO-' + userId), 'activo', userId]);
+  } catch (e) {
+    console.error('No se pudo crear el comercio asociado en Flow:', e.message);
+    await pool.query(`UPDATE users SET flow_merchant_estado='error' WHERE id=$1`, [userId]);
+  }
+};
+
 // Devuelve el plan actual del usuario; si ya venció, lo baja a 'basico'
 const planVigente = async userId => {
   await pool.query(`UPDATE users SET plan='basico', plan_vence=NULL WHERE id=$1 AND plan<>'basico' AND plan_vence IS NOT NULL AND plan_vence < NOW()`, [userId]);
@@ -117,6 +137,7 @@ app.post('/api/auth/register', limitar(10, 3600000), async (req, res) => {
       'INSERT INTO users(email,password,nombre,iniciales) VALUES($1,$2,$3,$4) RETURNING id,email,nombre,iniciales',
       [mail, await bcrypt.hash(password, 10), nombre.trim(), ini])).rows[0];
     await pool.query('INSERT INTO user_data(user_id,estado) VALUES($1,$2)', [u.id, estadoInicial(empresa && empresa.trim())]);
+    crearComercioFlow(u.id, empresa && empresa.trim() || nombre); // en segundo plano, no se espera
     res.status(201).json({ token: makeToken(u), user: u });
   } catch (e) { fail(res, e, 'No se pudo crear la cuenta'); }
 });
@@ -223,6 +244,131 @@ app.get('/api/pagos', auth, async (req, res) => {
   } catch (e) { fail(res, e, 'Error al cargar los pagos'); }
 });
 
+// ── Endpoints de cobro automático a clientes ──
+
+// Ver / reintentar el comercio asociado del usuario logueado
+app.get('/api/flow/comercio', auth, async (req, res) => {
+  try {
+    const u = (await pool.query('SELECT flow_merchant_id,flow_merchant_estado FROM users WHERE id=$1', [req.userId])).rows[0];
+    res.json({ id: u.flow_merchant_id, estado: u.flow_merchant_estado || 'pendiente' });
+  } catch (e) { fail(res, e, 'Error al consultar el comercio'); }
+});
+app.post('/api/flow/comercio/reintentar', auth, async (req, res) => {
+  try {
+    const u = (await pool.query('SELECT nombre FROM users WHERE id=$1', [req.userId])).rows[0];
+    await crearComercioFlow(req.userId, u.nombre);
+    const r = (await pool.query('SELECT flow_merchant_id,flow_merchant_estado FROM users WHERE id=$1', [req.userId])).rows[0];
+    res.json({ id: r.flow_merchant_id, estado: r.flow_merchant_estado });
+  } catch (e) { fail(res, e, 'No se pudo crear el comercio'); }
+});
+
+// Invita a un cliente (de una empresa) a registrar su tarjeta para cobro automático
+app.post('/api/flow/clientes/:clienteId/invitar', auth, async (req, res) => {
+  try {
+    if (!FLOW_KEY || !FLOW_SECRET) return res.status(503).json({ error: 'Los pagos aún no están configurados' });
+    const clienteId = Number(req.params.clienteId);
+    const { nombre, email } = req.body;
+    if (!nombre || !email) return res.status(400).json({ error: 'Falta el nombre o email del cliente' });
+
+    let existente = (await pool.query(
+      'SELECT flow_customer_id FROM flow_clientes WHERE user_id=$1 AND cliente_id=$2', [req.userId, clienteId])).rows[0];
+
+    let customerId = existente && existente.flow_customer_id;
+    if (!customerId) {
+      const c = await flowCall('POST', '/customer/create', {
+        name: nombre, email, externalId: `${req.userId}-${clienteId}`
+      });
+      customerId = c.customerId;
+      await pool.query(
+        `INSERT INTO flow_clientes(user_id,cliente_id,flow_customer_id) VALUES($1,$2,$3)
+         ON CONFLICT(user_id,cliente_id) DO UPDATE SET flow_customer_id=$3`, [req.userId, clienteId, customerId]);
+    }
+
+    const r = await flowCall('POST', '/customer/register', {
+      customerId, url_return: `${APP_URL}/api/flow/clientes/registro-retorno`
+    });
+    const urlRegistro = `${r.url}?token=${r.token}`;
+    await pool.query('UPDATE flow_clientes SET token_registro=$1 WHERE user_id=$2 AND cliente_id=$3',
+      [r.token, req.userId, clienteId]);
+    res.json({ url: urlRegistro });
+  } catch (e) { fail(res, e, 'No se pudo invitar al cliente'); }
+});
+
+// El cliente final vuelve desde Flow tras intentar registrar su tarjeta
+app.get('/api/flow/clientes/registro-retorno', async (req, res) => {
+  try {
+    const token = req.query.token;
+    if (token) {
+      const st = await flowCall('GET', '/customer/getRegisterStatus', { token });
+      if (st.status === 1) // 1 = registro exitoso (confirma el valor exacto en sandbox)
+        await pool.query('UPDATE flow_clientes SET tarjeta_registrada=TRUE WHERE token_registro=$1', [token]);
+    }
+    res.redirect(303, `${APP_URL}/?registro=ok`);
+  } catch (e) { console.error(e); res.redirect(303, `${APP_URL}/?registro=error`); }
+});
+
+// Consulta si un cliente ya registró su tarjeta
+app.get('/api/flow/clientes/:clienteId/estado', auth, async (req, res) => {
+  try {
+    const r = (await pool.query(
+      'SELECT tarjeta_registrada FROM flow_clientes WHERE user_id=$1 AND cliente_id=$2',
+      [req.userId, Number(req.params.clienteId)])).rows[0];
+    res.json({ registrado: !!(r && r.tarjeta_registrada) });
+  } catch (e) { fail(res, e, 'Error al consultar el estado'); }
+});
+
+// Cobra automáticamente a un cliente que ya registró su tarjeta
+app.post('/api/flow/clientes/:clienteId/cobrar', auth, async (req, res) => {
+  try {
+    if (!FLOW_KEY || !FLOW_SECRET) return res.status(503).json({ error: 'Los pagos aún no están configurados' });
+    const clienteId = Number(req.params.clienteId);
+    const monto = Number(req.body.monto), subject = String(req.body.subject || 'Cobro de membresía').slice(0, 100);
+    if (!Number.isFinite(monto) || monto < 350) return res.status(400).json({ error: 'Monto inválido (mínimo $350)' });
+
+    const fc = (await pool.query(
+      'SELECT flow_customer_id,tarjeta_registrada FROM flow_clientes WHERE user_id=$1 AND cliente_id=$2',
+      [req.userId, clienteId])).rows[0];
+    if (!fc || !fc.tarjeta_registrada) return res.status(400).json({ error: 'Este cliente aún no registró su tarjeta' });
+
+    const orden = `COB-${req.userId}-${clienteId}-${Date.now()}`;
+    await pool.query(
+      'INSERT INTO flow_cobros(user_id,cliente_id,flow_customer_id,commerce_order,monto) VALUES($1,$2,$3,$4,$5)',
+      [req.userId, clienteId, fc.flow_customer_id, orden, monto]);
+
+    const f = await flowCall('POST', '/customer/charge', {
+      customerId: fc.flow_customer_id, commerceOrder: orden, subject, currency: 'CLP', amount: monto,
+      urlConfirmation: `${APP_URL}/api/flow/cobros/confirmar`, urlReturn: `${APP_URL}/?cobro=ok`
+    });
+    await pool.query('UPDATE flow_cobros SET flow_order=$1 WHERE commerce_order=$2', [String(f.flowOrder || ''), orden]);
+    res.json({ ok: true, commerceOrder: orden });
+  } catch (e) {
+    console.error(e);
+    res.status(400).json({ error: e.message || 'No se pudo realizar el cobro' });
+  }
+});
+
+// Webhook: Flow confirma el resultado del cobro automático
+app.post('/api/flow/cobros/confirmar', async (req, res) => {
+  try {
+    const token = req.body.token;
+    const f = await flowCall('GET', '/payment/getStatus', { token });
+    const estado = { 1: 'pendiente', 2: 'pagado', 3: 'rechazado', 4: 'anulado' }[f.status] || 'desconocido';
+    await pool.query('UPDATE flow_cobros SET estado=$1, pagado_at=CASE WHEN $1=\'pagado\' THEN NOW() ELSE pagado_at END WHERE commerce_order=$2',
+      [estado, f.commerceOrder]);
+    res.sendStatus(200);
+  } catch (e) { console.error(e); res.sendStatus(500); }
+});
+
+// Historial de cobros automáticos de un cliente
+app.get('/api/flow/clientes/:clienteId/cobros', auth, async (req, res) => {
+  try {
+    const r = await pool.query(
+      'SELECT commerce_order,monto,estado,created_at,pagado_at FROM flow_cobros WHERE user_id=$1 AND cliente_id=$2 ORDER BY id DESC LIMIT 20',
+      [req.userId, Number(req.params.clienteId)]);
+    res.json(r.rows);
+  } catch (e) { fail(res, e, 'Error al cargar los cobros'); }
+});
+
 (async () => {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users(
@@ -237,6 +383,21 @@ app.get('/api/pagos', auth, async (req, res) => {
       id SERIAL PRIMARY KEY, user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       commerce_order VARCHAR(100) UNIQUE NOT NULL, token VARCHAR(100), flow_order VARCHAR(50),
       plan VARCHAR(50) NOT NULL, monto INT NOT NULL, estado VARCHAR(20) NOT NULL DEFAULT 'pendiente',
+      created_at TIMESTAMP DEFAULT NOW(), pagado_at TIMESTAMP);
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS flow_merchant_id VARCHAR(100);
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS flow_merchant_estado VARCHAR(20) DEFAULT 'pendiente';
+    -- Un cliente final (el de la empresa, no el de Vencio) registrado en Flow para cobro automático.
+    -- cliente_id apunta al "id" dentro del arreglo JSON estado.clientes (no hay tabla clientes).
+    CREATE TABLE IF NOT EXISTS flow_clientes(
+      id SERIAL PRIMARY KEY, user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      cliente_id INT NOT NULL, flow_customer_id VARCHAR(100) UNIQUE NOT NULL,
+      tarjeta_registrada BOOLEAN NOT NULL DEFAULT FALSE, token_registro VARCHAR(200),
+      created_at TIMESTAMP DEFAULT NOW(), UNIQUE(user_id, cliente_id));
+    CREATE TABLE IF NOT EXISTS flow_cobros(
+      id SERIAL PRIMARY KEY, user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      cliente_id INT NOT NULL, flow_customer_id VARCHAR(100) NOT NULL,
+      commerce_order VARCHAR(100) UNIQUE NOT NULL, monto INT NOT NULL,
+      estado VARCHAR(20) NOT NULL DEFAULT 'pendiente', flow_order VARCHAR(50), error_msg TEXT,
       created_at TIMESTAMP DEFAULT NOW(), pagado_at TIMESTAMP);`);
   app.listen(PORT, () => console.log(`✓ Vencio corriendo en http://localhost:${PORT}`));
 })().catch(e => { console.error('No se pudo conectar a PostgreSQL:', e.message); process.exit(1); });
