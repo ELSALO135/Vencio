@@ -612,7 +612,26 @@ tr:hover td{background:var(--surface2)}
     <div class="ma" style="flex-wrap:wrap;gap:8px">
       <button class="btn" onclick="cerrar('modal-detalle')">Cerrar</button>
       <button class="btn" style="background:var(--green-l);color:var(--green);border-color:#A8D97A" onclick="enviarLink()">Enviar link</button>
+      <button class="btn" id="btn-cobro-auto" style="background:#E8F0FE;color:#1A56DB;border-color:#A9C6F5" onclick="abrirCobroAuto()">💳 Cobro automático</button>
       <button class="btn btn-p" onclick="marcarPagado()">✓ Marcar pagado</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="modal-cobro-auto">
+  <div class="modal" style="width:420px">
+    <div class="modal-t">Cobro automático <span class="modal-x" onclick="cerrar(\'modal-cobro-auto\')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span></div>
+    <div id="ca-cargando" style="padding:12px 0;color:var(--text3);font-size:13px">Consultando estado en Flow...</div>
+    <div id="ca-sin-tarjeta" style="display:none">
+      <p style="font-size:13px;color:var(--text3);margin-bottom:12px">Este cliente aún no registró una tarjeta. Envíale el link para que la registre una sola vez; después podrás cobrarle automáticamente cada vez que venza.</p>
+      <button class="btn btn-p" style="width:100%" onclick="invitarRegistroTarjeta()">Generar link de registro</button>
+      <div id="ca-link-generado" style="display:none;margin-top:10px;font-size:12px;word-break:break-all;background:var(--bg2);padding:8px;border-radius:8px"></div>
+    </div>
+    <div id="ca-con-tarjeta" style="display:none">
+      <p style="font-size:13px;color:var(--green);margin-bottom:12px">✓ Este cliente ya tiene tarjeta registrada para cobro automático.</p>
+      <label style="font-size:12px;color:var(--text3)">Monto a cobrar (CLP)</label>
+      <input type="number" id="ca-monto" class="inp" style="width:100%;margin:6px 0 12px" placeholder="Ej: 50000">
+      <button class="btn btn-p" style="width:100%" onclick="cobrarAhora()">Cobrar ahora</button>
     </div>
   </div>
 </div>
@@ -1131,6 +1150,43 @@ function eliminarNota(cid,idx){const c=CLIENTES.find(x=>x.id===cid);if(!c)return
 function enviarLink(){cerrar("modal-detalle");document.getElementById("modal-link").classList.add("open");}
 function simEnvio(canal){const c=clienteDetalle;if(!c)return;cerrar("modal-link");NOTIFS.unshift({tipo:"ok",empresa:c.empresa,msg:`Link de cobro enviado via ${canal} a ${c.nombre}.`,tiempo:"Ahora mismo"});renderAlertas();renderActivity();alert("✓ Link enviado por "+canal+" a "+c.nombre);}
 function marcarPagado(){if(clienteDetalle)marcarPagadoId(clienteDetalle.id);cerrar("modal-detalle");}
+
+// ═══════════════════════════
+// COBRO AUTOMÁTICO (Flow)
+// ═══════════════════════════
+async function abrirCobroAuto(){
+  const c=clienteDetalle;if(!c||DEMO||!TOKEN){alert("El cobro automático solo está disponible con una cuenta real (no en la demo).");return;}
+  document.getElementById("modal-cobro-auto").classList.add("open");
+  document.getElementById("ca-cargando").style.display="";
+  document.getElementById("ca-sin-tarjeta").style.display="none";
+  document.getElementById("ca-con-tarjeta").style.display="none";
+  document.getElementById("ca-link-generado").style.display="none";
+  try{
+    const r=await api(`/flow/clientes/${c.id}/estado`);
+    document.getElementById("ca-cargando").style.display="none";
+    document.getElementById(r.registrado?"ca-con-tarjeta":"ca-sin-tarjeta").style.display="";
+  }catch(e){document.getElementById("ca-cargando").textContent="No se pudo consultar: "+e.message;}
+}
+async function invitarRegistroTarjeta(){
+  const c=clienteDetalle;if(!c)return;
+  try{
+    const r=await api(`/flow/clientes/${c.id}/invitar`,"POST",{nombre:c.nombre,email:c.email});
+    const d=document.getElementById("ca-link-generado");
+    d.style.display="";
+    d.innerHTML=`<a href="${esc(r.url)}" target="_blank" style="color:var(--blue)">${esc(r.url)}</a><br><button class="btn-sm" style="margin-top:8px" onclick="navigator.clipboard.writeText('${esc(r.url)}');this.textContent='¡Copiado!'">Copiar link</button>`;
+  }catch(e){alert("No se pudo generar el link: "+e.message);}
+}
+async function cobrarAhora(){
+  const c=clienteDetalle;if(!c)return;
+  const monto=Number(document.getElementById("ca-monto").value);
+  if(!monto||monto<350){alert("Ingresa un monto válido (mínimo $350).");return;}
+  if(!confirm(`¿Cobrar ${fmt(monto)} a ${c.nombre} ahora mismo?`))return;
+  try{
+    await api(`/flow/clientes/${c.id}/cobrar`,"POST",{monto,subject:`Cobro ${c.tipo==="membresia"?"membresía":"cuota"} - ${c.nombre}`});
+    alert("Cobro enviado. El resultado llegará por webhook en unos segundos; revisa el historial de cobros.");
+    cerrar("modal-cobro-auto");
+  }catch(e){alert("No se pudo cobrar: "+e.message);}
+}
 function marcarPagadoId(id){
   const c=CLIENTES.find(x=>x.id===id);if(!c)return;
   const memb=c.tipo==="membresia";
