@@ -557,7 +557,32 @@ tr:hover td{background:var(--surface2)}
       <div class="sec" id="s-integraciones">
         <div class="sec-hdr"><div class="sec-hdr-ico" style="background:#FAEEDA"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#854F0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div><div class="sec-hdr-txt"><h2>Integraciones</h2><p>Conecta WooCommerce, Shopify, Flow y más</p></div></div>
         <div class="int-grid" id="int-grid"></div>
+
+        <div style="margin-top:1.75rem;padding-top:1.5rem;border-top:.5px solid var(--border)">
+          <h3 style="font-size:14px;font-weight:600;margin-bottom:4px">Mis tiendas conectadas</h3>
+          <p style="font-size:12.5px;color:var(--text3);margin-bottom:14px">Los clientes nuevos de estas tiendas se agregan solos a Vencio.</p>
+          <div id="tiendas-lista" style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px"></div>
+          <div style="display:flex;gap:8px">
+            <button class="btn" onclick="abrirConectarTienda(\'woocommerce\')">🛒 Conectar WooCommerce</button>
+            <button class="btn" onclick="abrirConectarTienda(\'shopify\')">🏪 Conectar Shopify</button>
+          </div>
+        </div>
       </div>
+
+<div class="overlay" id="modal-conectar-tienda">
+  <div class="modal" style="width:460px">
+    <div class="modal-t"><span id="ct-titulo">Conectar tienda</span> <span class="modal-x" onclick="cerrar(\'modal-conectar-tienda\')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span></div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div><label style="font-size:12px;color:var(--text3)">Empresa en Vencio</label><select id="ct-empresa" class="inp" style="width:100%"></select></div>
+      <div><label style="font-size:12px;color:var(--text3)">Nombre para identificarla</label><input id="ct-nombre" class="inp" style="width:100%" placeholder="Ej: Tienda principal"></div>
+      <div id="ct-campo-dominio"><label style="font-size:12px;color:var(--text3)" id="ct-label-dominio">Dominio de la tienda</label><input id="ct-dominio" class="inp" style="width:100%" placeholder="mitienda.cl"></div>
+      <div><label style="font-size:12px;color:var(--text3)" id="ct-label-cred1">Consumer Key</label><input id="ct-cred1" class="inp" style="width:100%"></div>
+      <div><label style="font-size:12px;color:var(--text3)" id="ct-label-cred2">Consumer Secret</label><input id="ct-cred2" class="inp" style="width:100%"></div>
+      <p id="ct-ayuda" style="font-size:11.5px;color:var(--text3);line-height:1.5"></p>
+    </div>
+    <div class="ma"><button class="btn" onclick="cerrar(\'modal-conectar-tienda\')">Cancelar</button><button class="btn btn-p" id="ct-btn-conectar" onclick="conectarTienda()">Conectar</button></div>
+  </div>
+</div>
 
       <!-- MODERADORES -->
       <div class="sec" id="s-moderadores">
@@ -718,13 +743,11 @@ const METODOS_PAGO={
   efectivo:{nombre:"Efectivo",color:"#F0E8FF",colorT:"#5A1E91",activo:true,desc:"El pago se registra manualmente al recibir efectivo."},
   paypal:{nombre:"PayPal",color:"#FCEBEB",colorT:"#A32D2D",activo:false,desc:"Para clientes internacionales."},
 };
+// Flow ya está integrado de verdad (ver seccion Planes). El resto queda para más adelante: se muestran como "Próximamente".
 const INTEGRACIONES=[
-  {id:"woo",nombre:"WooCommerce",logo:"🛒",activo:true,desc:"Detecta compras en cuotas automaticamente.",webhook:"https://vencio.app/webhook/woo/TU_API_KEY"},
-  {id:"shopify",nombre:"Shopify",logo:"🏪",activo:false,desc:"Conecta Shopify para que cada venta a credito genere cuotas en Vencio.",webhook:"https://vencio.app/webhook/shopify/TU_API_KEY"},
-  {id:"flow",nombre:"Flow.cl",logo:"⚡",activo:true,desc:"Procesa pagos automaticos via Flow en tiempo real.",webhook:"https://vencio.app/webhook/flow/TU_API_KEY"},
-  {id:"wp",nombre:"Webpay",logo:"💳",activo:false,desc:"Integracion directa con Transbank.",webhook:"https://vencio.app/webhook/webpay/TU_API_KEY"},
-  {id:"pp",nombre:"PayPal",logo:"🅿️",activo:false,desc:"Genera links PayPal para clientes internacionales.",webhook:"https://vencio.app/webhook/paypal/TU_API_KEY"},
-  {id:"api",nombre:"API Propia",logo:"🔗",activo:false,desc:"Conecta cualquier sistema externo con la API REST de Vencio.",webhook:"https://vencio.app/api/v1/TU_API_KEY"},
+  {id:"wp",nombre:"Webpay",logo:"💳",activo:false,desc:"Integracion directa con Transbank. Proximamente.",proximamente:true},
+  {id:"pp",nombre:"PayPal",logo:"🅿️",activo:false,desc:"Genera links PayPal para clientes internacionales. Proximamente.",proximamente:true},
+  {id:"api",nombre:"API Propia",logo:"🔗",activo:false,desc:"Conecta cualquier sistema externo con la API REST de Vencio. Proximamente.",proximamente:true},
 ];
 const RECORDATORIOS=[
   {id:1,nombre:"Recordatorio previo al vencimiento",desc:"Avisa al cliente X dias antes de que venza su cuota.",canal:"whatsapp",dias:3,activo:true},
@@ -987,10 +1010,83 @@ function togglePago(k,val){METODOS_PAGO[k].activo=val;renderPagos();}
 // ═══════════════════════════
 function renderIntegraciones(){
   let h="";
-  INTEGRACIONES.forEach(i=>{h+=`<div class="int-card"><div style="font-size:28px;margin-bottom:8px">${i.logo}</div><div style="font-size:14px;font-weight:500;margin-bottom:4px">${i.nombre}</div><div style="font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:12px">${i.desc}</div>${i.activo?`<div class="webhook-box">${i.webhook}</div>`:""}<div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px"><span style="font-size:11.5px;${i.activo?"color:var(--green);font-weight:500":"color:var(--text3)"}">${i.activo?"✓ Conectado":"Sin conectar"}</span><button class="btn ${i.activo?"":"btn-p"} btn-sm" onclick="toggleInt('${i.id}')">${i.activo?"Desconectar":"Conectar"}</button></div></div>`;});
+  INTEGRACIONES.forEach(i=>{h+=`<div class="int-card" style="opacity:.6"><div style="font-size:28px;margin-bottom:8px">${i.logo}</div><div style="font-size:14px;font-weight:500;margin-bottom:4px">${esc(i.nombre)}</div><div style="font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:12px">${esc(i.desc)}</div><span style="font-size:11.5px;color:var(--text3)">Proximamente</span></div>`;});
   document.getElementById("int-grid").innerHTML=h;
+  cargarTiendas();
 }
-function toggleInt(id){const i=INTEGRACIONES.find(x=>x.id===id);if(!i)return;if(!i.activo){i.activo=true;NOTIFS.unshift({tipo:"ok",empresa:1,msg:`Integracion con ${i.nombre} conectada.`,tiempo:"Ahora mismo"});}else{if(!confirm("Desconectar "+i.nombre+"?"))return;i.activo=false;}renderIntegraciones();renderAlertas();}
+
+// ═══════════════════════════
+// INTEGRACIONES REALES: WooCommerce / Shopify
+// ═══════════════════════════
+async function cargarTiendas(){
+  if(DEMO||!TOKEN){document.getElementById("tiendas-lista").innerHTML=`<p style="font-size:12.5px;color:var(--text3)">Conecta una cuenta real para usar esto (no disponible en la demo).</p>`;return;}
+  try{
+    const tiendas=await api("/integraciones");
+    const cont=document.getElementById("tiendas-lista");
+    if(!tiendas.length){cont.innerHTML=`<p style="font-size:12.5px;color:var(--text3)">Aun no has conectado ninguna tienda.</p>`;return;}
+    cont.innerHTML=tiendas.map(t=>`
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;border:.5px solid var(--border);border-radius:10px">
+        <div>
+          <div style="font-size:13px;font-weight:500">${t.tipo==="woocommerce"?"🛒":"🏪"} ${esc(t.nombre)} <span style="color:var(--text3);font-weight:400">(${esc(empN(t.empresa_id))})</span></div>
+          <div style="font-size:11.5px;color:var(--text3)">${esc(t.dominio)} · ${t.webhook_activo?"✓ Sincronizacion automatica activa":"Solo sincronizacion manual"} ${t.ultima_sync?"· Ultima vez: "+new Date(t.ultima_sync).toLocaleString("es-CL"):""}</div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn-sm" onclick="sincronizarTienda(${t.id})">Sincronizar ahora</button>
+          <button class="btn-sm" style="color:var(--red)" onclick="desconectarTienda(${t.id})">Desconectar</button>
+        </div>
+      </div>`).join("");
+  }catch(e){document.getElementById("tiendas-lista").innerHTML=`<p style="font-size:12.5px;color:var(--red)">No se pudo cargar: ${esc(e.message)}</p>`;}
+}
+function abrirConectarTienda(tipo){
+  document.getElementById("ct-titulo").textContent="Conectar "+(tipo==="woocommerce"?"WooCommerce":"Shopify");
+  document.getElementById("ct-nombre").value="";document.getElementById("ct-dominio").value="";
+  document.getElementById("ct-cred1").value="";document.getElementById("ct-cred2").value="";
+  document.getElementById("ct-btn-conectar").dataset.tipo=tipo;
+  const sel=document.getElementById("ct-empresa");
+  sel.innerHTML=EMPRESAS.map(e=>`<option value="${esc(e.id)}">${esc(e.nombre)}</option>`).join("");
+  if(tipo==="woocommerce"){
+    document.getElementById("ct-label-dominio").textContent="URL de tu sitio WordPress";
+    document.getElementById("ct-dominio").placeholder="mitienda.cl";
+    document.getElementById("ct-label-cred1").textContent="Consumer Key";
+    document.getElementById("ct-label-cred2").textContent="Consumer Secret";
+    document.getElementById("ct-ayuda").textContent="En tu WordPress: WooCommerce > Ajustes > Avanzado > API REST > Agregar clave. Dale permiso de Lectura.";
+  }else{
+    document.getElementById("ct-label-dominio").textContent="Dominio de tu tienda Shopify";
+    document.getElementById("ct-dominio").placeholder="mitienda.myshopify.com";
+    document.getElementById("ct-label-cred1").textContent="Admin API access token";
+    document.getElementById("ct-label-cred2").textContent="Client secret (API secret key)";
+    document.getElementById("ct-ayuda").textContent="En tu Shopify: Configuracion > Apps y canales de venta > Desarrollar apps > Crea una app personalizada con permiso read_customers, y copia el token y la clave secreta de API.";
+  }
+  document.getElementById("modal-conectar-tienda").classList.add("open");
+}
+async function conectarTienda(){
+  const tipo=document.getElementById("ct-btn-conectar").dataset.tipo;
+  const empresaId=Number(document.getElementById("ct-empresa").value);
+  const nombre=document.getElementById("ct-nombre").value.trim();
+  const dominio=document.getElementById("ct-dominio").value.trim();
+  const cred1=document.getElementById("ct-cred1").value.trim();
+  const cred2=document.getElementById("ct-cred2").value.trim();
+  if(!nombre||!dominio||!cred1||!cred2){alert("Completa todos los campos.");return;}
+  const btn=document.getElementById("ct-btn-conectar");btn.disabled=true;btn.textContent="Conectando...";
+  try{
+    const r=await api("/integraciones","POST",{tipo,empresaId,nombre,dominio,cred1,cred2});
+    cerrar("modal-conectar-tienda");
+    if(r.aviso)alert(r.aviso);else alert("Tienda conectada. Los clientes nuevos se agregaran solos a Vencio.");
+    cargarTiendas();
+  }catch(e){alert("No se pudo conectar: "+e.message);}
+  finally{btn.disabled=false;btn.textContent="Conectar";}
+}
+async function sincronizarTienda(id){
+  try{
+    const r=await api(`/integraciones/${id}/sincronizar`,"POST");
+    alert(`Listo: ${r.importados} cliente(s) sincronizado(s).`);
+    renderAll();
+  }catch(e){alert("No se pudo sincronizar: "+e.message);}
+}
+async function desconectarTienda(id){
+  if(!confirm("Desconectar esta tienda? Los clientes ya importados se quedan en Vencio."))return;
+  try{await api(`/integraciones/${id}`,"DELETE");cargarTiendas();}catch(e){alert("No se pudo desconectar: "+e.message);}
+}
 
 // ═══════════════════════════
 // MODS
