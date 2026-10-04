@@ -403,7 +403,7 @@ tr:hover td{background:var(--surface2)}
       <div class="ni" onclick="navTo(this,'finanzas')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg> Finanzas</div>
       <div class="ni" onclick="navTo(this,'calendario')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Calendario</div>
       <div class="ni" onclick="navTo(this,'clientes')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Clientes</div>
-      <div class="ni" onclick="navTo(this,'alertas')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> Alertas <span class="nb" id="nb-alertas">3</span></div>
+      <div class="ni" onclick="navTo(this,'alertas')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> Alertas <span class="nb" id="nb-alertas" style="display:none">0</span></div>
       <div class="nav-sec">Herramientas</div>
       <div class="ni" onclick="navTo(this,'recordatorios')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Recordatorios</div>
       <div class="ni" onclick="navTo(this,'portal')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> Portal cliente</div>
@@ -434,7 +434,7 @@ tr:hover td{background:var(--surface2)}
         <div class="live"><div class="dot"></div> En vivo</div>
         <button class="icon-btn" onclick="navTo(document.querySelector('[onclick*=alertas]'),'alertas')">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-          <div class="ndot"></div>
+          <div class="ndot" id="ndot-alertas" style="display:none"></div>
         </button>
         <button class="dark-toggle" onclick="toggleDark()" title="Modo oscuro (Ctrl+D)">
           <svg id="dark-ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
@@ -933,7 +933,9 @@ function renderAlertas(){
   let h="";
   NOTIFS.forEach(n=>{h+=`<div class="notif ${cl[n.tipo]}"><div style="font-size:18px;color:${co[n.tipo]};flex-shrink:0;margin-top:1px">${em[n.tipo]}</div><div><div class="n-msg">${esc(n.msg)}</div><div class="n-emp">${esc(empN(n.empresa))}</div><div class="n-time">${esc(n.tiempo)}</div></div></div>`;});
   document.getElementById("nlist").innerHTML=h;
-  document.getElementById("nb-alertas").textContent=NOTIFS.filter(n=>n.tipo==="danger").length;
+  const nPeligro=NOTIFS.filter(n=>n.tipo==="danger").length;
+  const nb=document.getElementById("nb-alertas");nb.textContent=nPeligro;nb.style.display=nPeligro?"":"none";
+  const nd=document.getElementById("ndot-alertas");if(nd)nd.style.display=NOTIFS.length?"":"none";
 }
 
 // ═══════════════════════════
