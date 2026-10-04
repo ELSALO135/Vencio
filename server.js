@@ -28,7 +28,7 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const app = express();
 app.set('trust proxy', 1);
 app.use(cors());
-app.use(express.json({ limit: '5mb' }));
+app.use(express.json({ limit: '5mb', verify: (req, res, buf) => { req.rawBody = buf; } }));
 app.use(express.urlencoded({ extended: false })); // Flow envía el token como formulario
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -244,6 +244,208 @@ app.get('/api/pagos', auth, async (req, res) => {
   } catch (e) { fail(res, e, 'Error al cargar los pagos'); }
 });
 
+// ── WooCommerce / Shopify: traer clientes automáticamente a Vencio ──
+const wooApi = async (ig, method, path, params = {}) => {
+  const base = ig.dominio.replace(/\/$/, '');
+  const qs = new URLSearchParams({ ...params, consumer_key: ig.cred1, consumer_secret: ig.cred2 }).toString();
+  const r = await fetch(`${base}/wp-json/wc/v3${path}?${qs}`, { method });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error((d && (d.message || d.error)) || 'Error al conectar con WooCommerce');
+  return d;
+};
+const shopifyApi = async (ig, method, path, body) => {
+  const r = await fetch(`https://${ig.dominio}/admin/api/2024-01${path}`, {
+    method, headers: { 'X-Shopify-Access-Token': ig.cred1, 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error((d && d.errors && JSON.stringify(d.errors)) || 'Error al conectar con Shopify');
+  return d;
+};
+const verificarFirmaWoo = (req, secret) => {
+  const firma = req.get('X-WC-Webhook-Signature');
+  if (!firma || !req.rawBody) return false;
+  const esperada = crypto.createHmac('sha256', secret).update(req.rawBody).digest('base64');
+  try { return crypto.timingSafeEqual(Buffer.from(firma), Buffer.from(esperada)); } catch { return false; }
+};
+const verificarFirmaShopify = (req, secret) => {
+  const firma = req.get('X-Shopify-Hmac-Sha256');
+  if (!firma || !req.rawBody) return false;
+  const esperada = crypto.createHmac('sha256', secret).update(req.rawBody).digest('base64');
+  try { return crypto.timingSafeEqual(Buffer.from(firma), Buffer.from(esperada)); } catch { return false; }
+};
+
+// Agrega o actualiza (sin pisar pagos ya registrados) un cliente que viene de una tienda externa.
+// Usa un bloqueo de fila para no perder datos si llegan dos webhooks casi al mismo tiempo.
+const upsertClienteExterno = async (userId, empresaId, origen, externalId, datos) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const r = await client.query('SELECT estado FROM user_data WHERE user_id=$1 FOR UPDATE', [userId]);
+    const estado = (r.rows[0] && r.rows[0].estado) || estadoInicial();
+    estado.clientes = Array.isArray(estado.clientes) ? estado.clientes : [];
+    let c = estado.clientes.find(x => x.origen === origen && x.externalId === externalId);
+    if (c) {
+      c.nombre = datos.nombre || c.nombre; c.email = datos.email || c.email; c.telefono = datos.telefono || c.telefono;
+    } else {
+      const nextId = estado.clientes.reduce((m, x) => Math.max(m, x.id || 0), 0) + 1;
+      c = {
+        id: nextId, empresa: empresaId, nombre: datos.nombre || '(sin nombre)', email: datos.email || '',
+        telefono: datos.telefono || '', rut: '', tipo: 'membresia', montoCuota: 0, cuotasPagadas: 0, cuotasTotal: 0,
+        metodoPago: '—', estado: 'pendiente', proximoVenc: null, historial: [], notas: [],
+        origen, externalId
+      };
+      estado.clientes.push(c);
+    }
+    await client.query(
+      `INSERT INTO user_data(user_id,estado) VALUES($1,$2)
+       ON CONFLICT(user_id) DO UPDATE SET estado=$2, updated_at=NOW()`, [userId, estado]);
+    await client.query('COMMIT');
+  } catch (e) { await client.query('ROLLBACK'); throw e; } finally { client.release(); }
+};
+
+// ── Endpoints de integraciones: conectar/sincronizar/desconectar tiendas ──
+
+// Lista las tiendas conectadas del usuario (sin exponer las credenciales completas)
+app.get('/api/integraciones', auth, async (req, res) => {
+  try {
+    const r = await pool.query(
+      `SELECT id,empresa_id,tipo,nombre,dominio,activa,ultima_sync,
+              (webhook_id_remoto IS NOT NULL) AS webhook_activo
+       FROM integraciones_tienda WHERE user_id=$1 ORDER BY id DESC`, [req.userId]);
+    res.json(r.rows);
+  } catch (e) { fail(res, e, 'Error al cargar las integraciones'); }
+});
+
+// Conecta una tienda nueva: valida las credenciales, las guarda y registra el webhook si se puede
+app.post('/api/integraciones', auth, async (req, res) => {
+  try {
+    const { tipo, empresaId, nombre, dominio } = req.body;
+    let { cred1, cred2 } = req.body;
+    if (!['woocommerce', 'shopify'].includes(tipo)) return res.status(400).json({ error: 'Tipo de tienda inválido' });
+    if (!empresaId || !nombre || !dominio || !cred1 || !cred2) return res.status(400).json({ error: 'Faltan datos de conexión' });
+
+    const dom = String(dominio).trim().replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const ig = { dominio: tipo === 'woocommerce' ? `https://${dom}` : dom, cred1: String(cred1).trim(), cred2: String(cred2).trim() };
+
+    // 1) Probar que las credenciales realmente funcionan antes de guardar nada
+    if (tipo === 'woocommerce') await wooApi(ig, 'GET', '/customers', { per_page: 1 });
+    else await shopifyApi(ig, 'GET', '/shop.json');
+
+    // 2) Guardar la conexión
+    const webhookSecret = tipo === 'woocommerce' ? crypto.randomBytes(24).toString('hex') : null;
+    const row = (await pool.query(
+      `INSERT INTO integraciones_tienda(user_id,empresa_id,tipo,nombre,dominio,cred1,cred2,webhook_secret)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
+      [req.userId, empresaId, tipo, nombre, ig.dominio, ig.cred1, ig.cred2, webhookSecret])).rows[0];
+
+    // 3) Intentar registrar el webhook para que los clientes nuevos lleguen solos (si falla, queda para sincronizar manual)
+    let webhookOk = false, avisoWebhook = null;
+    try {
+      if (tipo === 'woocommerce') {
+        const base = ig.dominio.replace(/\/$/, '');
+        const qs = new URLSearchParams({ consumer_key: ig.cred1, consumer_secret: ig.cred2 }).toString();
+        const r1 = await fetch(`${base}/wp-json/wc/v3/webhooks?${qs}`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: 'Vencio - clientes creados', topic: 'customer.created',
+            delivery_url: `${APP_URL}/api/webhooks/woocommerce/${row.id}`, secret: webhookSecret })
+        });
+        const d1 = await r1.json();
+        if (r1.ok) { await pool.query('UPDATE integraciones_tienda SET webhook_id_remoto=$1 WHERE id=$2', [String(d1.id), row.id]); webhookOk = true; }
+      } else {
+        const d1 = await shopifyApi(ig, 'POST', '/webhooks.json', {
+          webhook: { topic: 'customers/create', address: `${APP_URL}/api/webhooks/shopify/${row.id}`, format: 'json' }
+        });
+        if (d1.webhook) { await pool.query('UPDATE integraciones_tienda SET webhook_id_remoto=$1 WHERE id=$2', [String(d1.webhook.id), row.id]); webhookOk = true; }
+      }
+    } catch (e) { avisoWebhook = 'Se conectó la tienda, pero no se pudo activar la sincronización automática: ' + e.message + '. Puedes usar "Sincronizar ahora" mientras tanto.'; }
+
+    res.status(201).json({ id: row.id, webhookActivo: webhookOk, aviso: avisoWebhook });
+  } catch (e) { res.status(400).json({ error: 'No se pudo conectar la tienda: ' + e.message }); }
+});
+
+// Trae ahora mismo los clientes existentes de una tienda ya conectada (carga inicial o respaldo del webhook)
+app.post('/api/integraciones/:id/sincronizar', auth, async (req, res) => {
+  try {
+    const ig = (await pool.query('SELECT * FROM integraciones_tienda WHERE id=$1 AND user_id=$2', [req.params.id, req.userId])).rows[0];
+    if (!ig) return res.status(404).json({ error: 'Integración no encontrada' });
+
+    let importados = 0;
+    if (ig.tipo === 'woocommerce') {
+      for (let pagina = 1; pagina <= 5; pagina++) {
+        const clientes = await wooApi(ig, 'GET', '/customers', { per_page: 50, page: pagina });
+        if (!Array.isArray(clientes) || !clientes.length) break;
+        for (const c of clientes) {
+          await upsertClienteExterno(req.userId, ig.empresa_id, 'woocommerce', String(c.id), {
+            nombre: `${c.first_name || ''} ${c.last_name || ''}`.trim() || c.username, email: c.email, telefono: c.billing?.phone || ''
+          });
+          importados++;
+        }
+        if (clientes.length < 50) break;
+      }
+    } else {
+      let pageInfo = null;
+      for (let pagina = 1; pagina <= 5; pagina++) {
+        const path = pageInfo ? `/customers.json?limit=50&page_info=${pageInfo}` : '/customers.json?limit=50';
+        const d = await shopifyApi(ig, 'GET', path);
+        const clientes = d.customers || [];
+        if (!clientes.length) break;
+        for (const c of clientes) {
+          await upsertClienteExterno(req.userId, ig.empresa_id, 'shopify', String(c.id), {
+            nombre: `${c.first_name || ''} ${c.last_name || ''}`.trim(), email: c.email, telefono: c.phone || ''
+          });
+          importados++;
+        }
+        break; // la paginación por cursor de Shopify requiere leer el header Link; se deja para una siguiente mejora
+      }
+    }
+    await pool.query('UPDATE integraciones_tienda SET ultima_sync=NOW() WHERE id=$1', [ig.id]);
+    res.json({ importados });
+  } catch (e) { res.status(400).json({ error: 'No se pudo sincronizar: ' + e.message }); }
+});
+
+// Desconecta una tienda (intenta borrar el webhook remoto, sin bloquear si falla)
+app.delete('/api/integraciones/:id', auth, async (req, res) => {
+  try {
+    const ig = (await pool.query('SELECT * FROM integraciones_tienda WHERE id=$1 AND user_id=$2', [req.params.id, req.userId])).rows[0];
+    if (!ig) return res.status(404).json({ error: 'Integración no encontrada' });
+    try {
+      if (ig.webhook_id_remoto && ig.tipo === 'woocommerce') await wooApi(ig, 'DELETE', `/webhooks/${ig.webhook_id_remoto}`, { force: true });
+      if (ig.webhook_id_remoto && ig.tipo === 'shopify') await shopifyApi(ig, 'DELETE', `/webhooks/${ig.webhook_id_remoto}.json`);
+    } catch (e) { console.error('No se pudo borrar el webhook remoto:', e.message); }
+    await pool.query('DELETE FROM integraciones_tienda WHERE id=$1', [ig.id]);
+    res.json({ ok: true });
+  } catch (e) { fail(res, e, 'No se pudo desconectar la tienda'); }
+});
+
+// Webhook: WooCommerce avisa que hay un cliente nuevo (o editado)
+app.post('/api/webhooks/woocommerce/:integracionId', async (req, res) => {
+  try {
+    const ig = (await pool.query('SELECT * FROM integraciones_tienda WHERE id=$1', [req.params.integracionId])).rows[0];
+    if (!ig || !ig.webhook_secret || !verificarFirmaWoo(req, ig.webhook_secret)) return res.sendStatus(401);
+    const c = req.body;
+    await upsertClienteExterno(ig.user_id, ig.empresa_id, 'woocommerce', String(c.id), {
+      nombre: `${c.first_name || ''} ${c.last_name || ''}`.trim() || c.username, email: c.email, telefono: c.billing?.phone || ''
+    });
+    await pool.query('UPDATE integraciones_tienda SET ultima_sync=NOW() WHERE id=$1', [ig.id]);
+    res.sendStatus(200);
+  } catch (e) { console.error('Webhook WooCommerce:', e.message); res.sendStatus(500); }
+});
+
+// Webhook: Shopify avisa que hay un cliente nuevo (o editado)
+app.post('/api/webhooks/shopify/:integracionId', async (req, res) => {
+  try {
+    const ig = (await pool.query('SELECT * FROM integraciones_tienda WHERE id=$1', [req.params.integracionId])).rows[0];
+    if (!ig || !verificarFirmaShopify(req, ig.cred2)) return res.sendStatus(401);
+    const c = req.body;
+    await upsertClienteExterno(ig.user_id, ig.empresa_id, 'shopify', String(c.id), {
+      nombre: `${c.first_name || ''} ${c.last_name || ''}`.trim(), email: c.email, telefono: c.phone || ''
+    });
+    await pool.query('UPDATE integraciones_tienda SET ultima_sync=NOW() WHERE id=$1', [ig.id]);
+    res.sendStatus(200);
+  } catch (e) { console.error('Webhook Shopify:', e.message); res.sendStatus(500); }
+});
+
 // ── Endpoints de cobro automático a clientes ──
 
 // Ver / reintentar el comercio asociado del usuario logueado
@@ -398,6 +600,15 @@ app.get('/api/flow/clientes/:clienteId/cobros', auth, async (req, res) => {
       cliente_id INT NOT NULL, flow_customer_id VARCHAR(100) NOT NULL,
       commerce_order VARCHAR(100) UNIQUE NOT NULL, monto INT NOT NULL,
       estado VARCHAR(20) NOT NULL DEFAULT 'pendiente', flow_order VARCHAR(50), error_msg TEXT,
-      created_at TIMESTAMP DEFAULT NOW(), pagado_at TIMESTAMP);`);
+      created_at TIMESTAMP DEFAULT NOW(), pagado_at TIMESTAMP);
+    -- Tiendas de WooCommerce/Shopify conectadas por cada empresa, para traer sus clientes automáticamente
+    CREATE TABLE IF NOT EXISTS integraciones_tienda(
+      id SERIAL PRIMARY KEY, user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      empresa_id INT NOT NULL, tipo VARCHAR(20) NOT NULL CHECK (tipo IN ('woocommerce','shopify')),
+      nombre VARCHAR(100) NOT NULL, dominio VARCHAR(255) NOT NULL,
+      cred1 VARCHAR(255) NOT NULL, cred2 VARCHAR(255) NOT NULL,
+      webhook_secret VARCHAR(100), webhook_id_remoto VARCHAR(100),
+      activa BOOLEAN NOT NULL DEFAULT TRUE, ultima_sync TIMESTAMP,
+      created_at TIMESTAMP DEFAULT NOW());`);
   app.listen(PORT, () => console.log(`✓ Vencio corriendo en http://localhost:${PORT}`));
 })().catch(e => { console.error('No se pudo conectar a PostgreSQL:', e.message); process.exit(1); });
