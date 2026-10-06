@@ -1039,10 +1039,11 @@ function mpConectar(){if(DEMO||!TOKEN){alert("Inicia sesión con una cuenta real
 async function mpDesconectar(){if(!confirm("¿Desconectar tu cuenta de Mercado Pago? Las suscripciones activas seguirán cobrando hasta que las canceles desde tu cuenta de Mercado Pago."))return;try{await api("/mp/desconectar","POST",{});MP_CONECTADO=false;renderIntegraciones();}catch(e){alert(e.message);}}
 async function mpCargarEstado(){if(DEMO||!TOKEN)return;try{MP_CONECTADO=(await api("/mp/estado")).conectado;renderIntegraciones();}catch(e){}}
 async function revisarMP(){
-  const q=new URLSearchParams(location.search).get("mp");if(!q)return;
+  const p=new URLSearchParams(location.search),q=p.get("mp");if(!q)return;
+  const motivo=(p.get("motivo")||"").slice(0,200);
   history.replaceState(null,"",location.pathname);
   if(q==="ok"){alert("✓ Tu cuenta de Mercado Pago quedó conectada.");await mpCargarEstado();}
-  else alert("No se pudo conectar tu cuenta de Mercado Pago. Intenta de nuevo.");
+  else alert("No se pudo conectar tu cuenta de Mercado Pago."+(motivo?"\n\nMotivo: "+motivo:"")+"\n\nIntenta de nuevo.");
 }
 
 // ═══════════════════════════
