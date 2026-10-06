@@ -7,21 +7,19 @@ if (!process.env.DATABASE_URL || !JWT_SECRET) {
   console.error('Falta DATABASE_URL o JWT_SECRET. Revisa que el archivo se llame ".env" (con punto) y esté junto a server.js.');
   process.exit(1);
 }
-// Flow (pagos). Para probar sin dinero real: FLOW_API_URL=https://sandbox.flow.cl/api con credenciales de sandbox.flow.cl
 const FLOW_KEY = process.env.FLOW_API_KEY, FLOW_SECRET = process.env.FLOW_API_SECRET;
 const FLOW_URL = process.env.FLOW_API_URL || 'https://www.flow.cl/api';
 const APP_URL = (process.env.APP_URL || 'https://vencio-production.up.railway.app').replace(/\/$/, '');
-// Mercado Pago (OAuth): cada usuario conecta su propia cuenta para traer sus ventas
 const MP_CLIENT_ID = process.env.MP_CLIENT_ID, MP_CLIENT_SECRET = process.env.MP_CLIENT_SECRET;
 if (!MP_CLIENT_ID || !MP_CLIENT_SECRET) console.warn('Aviso: faltan MP_CLIENT_ID / MP_CLIENT_SECRET, conectar Mercado Pago no funcionará.');
-// Las credenciales de cada usuario se cifran con esta llave antes de guardarlas en la base de datos
+
 const ENC_KEY = crypto.createHash('sha256').update(JWT_SECRET).digest();
 const encrypt = t => { const iv = crypto.randomBytes(12), c = crypto.createCipheriv('aes-256-gcm', ENC_KEY, iv);
   const e = Buffer.concat([c.update(t, 'utf8'), c.final()]); return [iv, e, c.getAuthTag()].map(b => b.toString('base64')).join('.'); };
 const decrypt = s => { const [iv, e, tag] = s.split('.').map(b => Buffer.from(b, 'base64'));
   const d = crypto.createDecipheriv('aes-256-gcm', ENC_KEY, iv); d.setAuthTag(tag);
   return Buffer.concat([d.update(e), d.final()]).toString('utf8'); };
-// Precios en CLP por 30 días. AJÚSTALOS a lo que quieras cobrar (Flow exige mínimo $350).
+
 const PLANES = { Principal: 13000, Plus: 22000, Pro: 36000, Omnibus: 64000 };
 if (!FLOW_KEY || !FLOW_SECRET) console.warn('Aviso: faltan FLOW_API_KEY / FLOW_API_SECRET, los pagos con Flow no funcionarán.');
 
@@ -29,7 +27,7 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '5mb' }));
-app.use(express.urlencoded({ extended: false })); // Flow envía el token como formulario
+app.use(express.urlencoded({ extended: false }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 const fail = (res, e, msg) => { console.error(e); res.status(500).json({ error: msg }); };
@@ -40,7 +38,6 @@ const auth = (req, res, next) => {
 };
 const estadoInicial = empresa => ({ empresas: [{ id: 1, nombre: empresa || 'Mi Empresa' }], clientes: [], ventas: [], notifs: [], moderadores: [] });
 
-// ── Flow: firma HMAC-SHA256 de los parámetros ordenados alfabéticamente ──
 const flowSign = p => crypto.createHmac('sha256', FLOW_SECRET).update(Object.keys(p).sort().map(k => k + p[k]).join('')).digest('hex');
 const flowCall = async (method, endpoint, params) => {
   const body = { ...params, apiKey: FLOW_KEY };
@@ -53,7 +50,7 @@ const flowCall = async (method, endpoint, params) => {
   if (!r.ok) throw new Error(d.message || 'Error al comunicarse con Flow');
   return d;
 };
-// Consulta a Flow el estado real del pago (nunca confiamos en lo que llega por el formulario) y activa el plan si se pagó
+
 const procesarPago = async token => {
   const f = await flowCall('GET', '/payment/getStatus', { token });
   const estado = { 1: 'pendiente', 2: 'pagado', 3: 'rechazado', 4: 'anulado' }[f.status] || 'desconocido';
@@ -102,7 +99,6 @@ app.get('/api/auth/profile', auth, async (req, res) => {
   } catch (e) { fail(res, e, 'Error al obtener el perfil'); }
 });
 
-// Estado completo de la cuenta (empresas, clientes, pagos, notas, moderadores, config)
 app.get('/api/state', auth, async (req, res) => {
   try {
     const r = await pool.query('SELECT estado FROM user_data WHERE user_id=$1', [req.userId]);
@@ -122,15 +118,13 @@ app.put('/api/state', auth, async (req, res) => {
   } catch (e) { fail(res, e, 'Error al guardar los datos'); }
 });
 
-// ── Pagos con Flow ──
-// 1) El usuario elige un plan: creamos la orden en Flow y devolvemos la URL de pago
 app.post('/api/pagos/iniciar', auth, async (req, res) => {
   try {
     if (!FLOW_KEY || !FLOW_SECRET) return res.status(503).json({ error: 'Los pagos aún no están configurados' });
     const plan = req.body.plan, monto = PLANES[plan];
-    if (!monto) return res.status(400).json({ error: 'Plan inválido' });
+    if (!monto) return res.status(400).json({ error: 'Plan no válido' });
     const u = (await pool.query('SELECT email FROM users WHERE id=$1', [req.userId])).rows[0];
-    const orden = `VEN-${req.userId}-${Date.now()}`;
+    const orden = `VC${req.userId}${Date.now()}`;
     const id = (await pool.query(
       'INSERT INTO pagos(user_id,commerce_order,plan,monto) VALUES($1,$2,$3,$4) RETURNING id', [req.userId, orden, plan, monto])).rows[0].id;
     const f = await flowCall('POST', '/payment/create', {
@@ -141,13 +135,11 @@ app.post('/api/pagos/iniciar', auth, async (req, res) => {
   } catch (e) { fail(res, e, 'No se pudo iniciar el pago'); }
 });
 
-// 2) Webhook: Flow avisa (servidor a servidor) que el pago cambió de estado
 app.post('/api/pagos/confirmar', async (req, res) => {
   try { await procesarPago(req.body.token); res.sendStatus(200); }
   catch (e) { console.error(e); res.sendStatus(500); }
 });
 
-// 3) El cliente vuelve desde Flow a Vencio (Flow lo redirige con POST)
 const retorno = async (req, res) => {
   try {
     const estado = await procesarPago((req.body && req.body.token) || req.query.token);
@@ -157,7 +149,6 @@ const retorno = async (req, res) => {
 app.post('/api/pagos/retorno', retorno);
 app.get('/api/pagos/retorno', retorno);
 
-// 4) Plan actual e historial de pagos del usuario
 app.get('/api/pagos', auth, async (req, res) => {
   try {
     const u = (await pool.query('SELECT plan,plan_vence FROM users WHERE id=$1', [req.userId])).rows[0];
@@ -167,9 +158,6 @@ app.get('/api/pagos', auth, async (req, res) => {
   } catch (e) { fail(res, e, 'Error al cargar los pagos'); }
 });
 
-// ── Mercado Pago: conectar la cuenta del usuario y traer sus pagos ──
-// 1) El usuario hace clic en "Conectar": lo mandamos a loguearse en Mercado Pago.
-//    Usamos su propio JWT como "state" para saber, al volver, a qué usuario de Vencio pertenece.
 app.get('/api/mp/conectar', (req, res) => {
   try {
     const userId = jwt.verify(req.query.token || '', JWT_SECRET).id;
@@ -180,7 +168,6 @@ app.get('/api/mp/conectar', (req, res) => {
   } catch (e) { res.status(401).send('Sesión inválida, vuelve a intentarlo desde Vencio.'); }
 });
 
-// 2) Mercado Pago nos devuelve un "code": lo cambiamos por el token de acceso del usuario y lo guardamos cifrado
 app.get('/api/mp/callback', async (req, res) => {
   try {
     const userId = jwt.verify(req.query.state || '', JWT_SECRET).id;
@@ -199,7 +186,6 @@ app.get('/api/mp/callback', async (req, res) => {
   } catch (e) { console.error(e); res.redirect(303, '/?mp=error'); }
 });
 
-// Devuelve (y si hace falta renueva) el access_token ya descifrado de un usuario
 const mpToken = async userId => {
   const c = (await pool.query('SELECT * FROM mp_cuentas WHERE user_id=$1', [userId])).rows[0];
   if (!c) return null;
@@ -214,7 +200,6 @@ const mpToken = async userId => {
   return d.access_token;
 };
 
-// 3) ¿Este usuario ya conectó su Mercado Pago?
 app.get('/api/mp/estado', auth, async (req, res) => {
   try { res.json({ conectado: !!(await pool.query('SELECT 1 FROM mp_cuentas WHERE user_id=$1', [req.userId])).rowCount }); }
   catch (e) { fail(res, e, 'Error al consultar Mercado Pago'); }
@@ -225,7 +210,6 @@ app.post('/api/mp/desconectar', auth, async (req, res) => {
   catch (e) { fail(res, e, 'Error al desconectar Mercado Pago'); }
 });
 
-// 4) Trae las ventas reales del usuario desde Mercado Pago (lo que alimenta los gráficos)
 app.get('/api/mp/ventas', auth, async (req, res) => {
   try {
     const token = await mpToken(req.userId);
