@@ -571,6 +571,7 @@ app.get('/api/mp/callback', async (req, res) => {
        VALUES($1,$2,$3,$4,$5,NOW() + ($6||' seconds')::interval)
        ON CONFLICT(user_id) DO UPDATE SET mp_user_id=$2,access_token=$3,refresh_token=$4,public_key=$5,expires_at=NOW() + ($6||' seconds')::interval`,
       [userId, t.user_id, encrypt(t.access_token), encrypt(t.refresh_token), t.public_key, t.expires_in]);
+    olvidarCuentaMP(userId);
     res.redirect(303, '/?mp=ok');
   } catch (e) { fallo('Error interno: ' + e.message); }
 });
@@ -590,13 +591,134 @@ const mpTokenDeUsuario = async userId => {
   return t.access_token;
 };
 
+// ── Estado financiero en vivo de la cuenta de Mercado Pago que conectó el usuario ──
+// Lo que la API de Mercado Pago SÍ entrega con el token del usuario: los datos de su cuenta (/users/me) y los pagos
+// que recibió (/v1/payments/search). El saldo exacto no tiene API oficial documentada: se intenta (puede no estar
+// disponible) y, si no, se muestra el dinero "por liberar", calculado desde los pagos.
+const mpCuentaCache = new Map(); // "userId:dias" -> { t, data }. Dura 30 s para no martillar a Mercado Pago.
+const olvidarCuentaMP = userId => { for (const k of mpCuentaCache.keys()) if (k.startsWith(`${userId}:`)) mpCuentaCache.delete(k); };
+
+const nombreCuentaMP = u => (u.company && (u.company.corporate_name || u.company.brand_name))
+  || [u.first_name, u.last_name].filter(Boolean).join(' ') || u.nickname || null;
+
+// Mercado Pago no tiene un campo oficial "es empresa". Se usa lo mejor disponible y se dice de dónde sale:
+// 1) si MP informa datos de empresa (company); 2) si el RUT es de persona jurídica (cuerpo entre 50.000.000 y 99.999.999).
+// Nunca se afirma "persona": si no hay indicios de empresa, queda "no_confirmado".
+const tipoCuentaMP = u => {
+  if (u.company && (u.company.corporate_name || u.company.brand_name)) return { tipo: 'empresa', tipoFuente: 'mercadopago' };
+  const idf = u.identification;
+  if (idf && String(idf.type).toUpperCase() === 'RUT' && idf.number) {
+    const txt = String(idf.number).replace(/[.\s]/g, '');
+    const cuerpo = txt.includes('-') ? txt.split('-')[0] : txt.slice(0, -1); // sin el dígito verificador
+    if (/^\d+$/.test(cuerpo) && Number(cuerpo) >= 50000000 && Number(cuerpo) < 100000000) return { tipo: 'empresa', tipoFuente: 'rut' };
+  }
+  return { tipo: 'no_confirmado', tipoFuente: null };
+};
+
+// Saldo: endpoint antiguo y no documentado oficialmente (hay reportes de que a veces responde not_found o se cuelga),
+// por eso es "mejor esfuerzo": 5 s de espera como máximo por intento y, si falla, el resto de la pantalla sigue funcionando.
+const saldoMP = async (token, mpId) => {
+  let ultimo = 'sin respuesta';
+  for (const host of ['https://api.mercadopago.com', 'https://api.mercadolibre.com']) {
+    try {
+      const r = await fetch(`${host}/users/${mpId}/mercadopago_account/balance`, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(5000) });
+      const d = await r.json().catch(() => ({}));
+      if (r.ok && d.available_balance != null) {
+        const total = Number(d.total_amount != null ? d.total_amount : d.available_balance) || 0, disponible = Number(d.available_balance) || 0;
+        return { total, disponible, noDisponible: Number(d.unavailable_balance != null ? d.unavailable_balance : total - disponible) || 0 };
+      }
+      ultimo = (d && d.message) || `HTTP ${r.status}`;
+    } catch (e) { ultimo = e.name === 'TimeoutError' ? 'tardó demasiado en responder' : e.message; }
+  }
+  throw new Error(ultimo);
+};
+
+// Pagos RECIBIDOS por la cuenta (collector.id) en los últimos N días. Hasta 500 (5 páginas de 100).
+const traerPagosMP = async (token, mpId, dias) => {
+  const pagos = []; let total = null;
+  for (let offset = 0; offset < 500; offset += 100) {
+    const qs = new URLSearchParams({ sort: 'date_created', criteria: 'desc', range: 'date_created', begin_date: `NOW-${dias}DAYS`,
+      end_date: 'NOW', 'collector.id': String(mpId), limit: '100', offset: String(offset) }).toString();
+    const d = await mpCall('GET', `/v1/payments/search?${qs}`, token);
+    const lista = Array.isArray(d.results) ? d.results : [];
+    if (d.paging && d.paging.total != null) total = Number(d.paging.total);
+    pagos.push(...lista);
+    if (lista.length < 100 || (total != null && pagos.length >= total)) break;
+  }
+  return { pagos, truncado: total != null && pagos.length < total };
+};
+
+const resumirPagosMP = (pagos, dias) => {
+  const ahora = Date.now(), num = v => Number(v) || 0;
+  const diaChile = f => new Date(f).toLocaleDateString('en-CA', { timeZone: 'America/Santiago' });
+  const neto = p => p.transaction_details && p.transaction_details.net_received_amount != null
+    ? num(p.transaction_details.net_received_amount)
+    : num(p.transaction_amount) - (p.fee_details || []).reduce((a, f) => a + num(f.amount), 0);
+  const serie = new Map();
+  for (let i = dias - 1; i >= 0; i--) serie.set(diaChile(ahora - i * 86400000), 0);
+  const r = { ingresos: 0, neto: 0, comisiones: 0, reembolsado: 0, pagosAprobados: 0,
+    pendientes: { monto: 0, cantidad: 0 }, porLiberar: { monto: 0, cantidad: 0 } };
+  for (const p of pagos) {
+    const monto = num(p.transaction_amount);
+    if (p.status === 'approved') {
+      const n = neto(p);
+      r.pagosAprobados++; r.ingresos += monto; r.neto += n; r.comisiones += monto - n;
+      const dia = diaChile(p.date_approved || p.date_created);
+      if (serie.has(dia)) serie.set(dia, serie.get(dia) + monto);
+      if (p.money_release_date && new Date(p.money_release_date).getTime() > ahora) { r.porLiberar.monto += n; r.porLiberar.cantidad++; }
+    } else if (['pending', 'in_process', 'authorized'].includes(p.status)) { r.pendientes.monto += monto; r.pendientes.cantidad++; }
+    r.reembolsado += num(p.transaction_amount_refunded);
+  }
+  const redond = Math.round;
+  const resumen = { ingresos: redond(r.ingresos), neto: redond(r.neto), comisiones: redond(r.comisiones), reembolsado: redond(r.reembolsado),
+    pagosAprobados: r.pagosAprobados, ticketPromedio: r.pagosAprobados ? redond(r.ingresos / r.pagosAprobados) : 0,
+    pendientes: { monto: redond(r.pendientes.monto), cantidad: r.pendientes.cantidad },
+    porLiberar: { monto: redond(r.porLiberar.monto), cantidad: r.porLiberar.cantidad } };
+  const movimientos = pagos.slice(0, 8).map(p => ({ id: String(p.id), fecha: p.date_created, estado: p.status,
+    descripcion: String(p.description || p.payment_method_id || 'Pago').slice(0, 80), monto: redond(num(p.transaction_amount)) }));
+  return { resumen, serie: [...serie].map(([dia, total]) => ({ dia, total: redond(total) })), movimientos,
+    moneda: (pagos[0] && pagos[0].currency_id) || 'CLP' };
+};
+
+app.get('/api/mp/cuenta', auth, async (req, res) => {
+  try {
+    const pedidos = parseInt(req.query.dias, 10), dias = [7, 30, 90].includes(pedidos) ? pedidos : 30;
+    const clave = `${req.userId}:${dias}`, previo = mpCuentaCache.get(clave);
+    if (!req.query.forzar && previo && Date.now() - previo.t < 30000) return res.json(previo.data);
+    const token = await mpTokenDeUsuario(req.userId);
+    if (!token) return res.status(404).json({ error: 'Tu cuenta de Mercado Pago no está conectada (o venció). Vuelve a conectarla.' });
+    const avisos = [];
+    let mpId = (await pool.query('SELECT mp_user_id FROM mp_cuentas WHERE user_id=$1', [req.userId])).rows[0]?.mp_user_id || null;
+    let cuenta = null;
+    try {
+      const u = await mpCall('GET', '/users/me', token);
+      if (!mpId && u.id) mpId = String(u.id);
+      // "campos" = solo los NOMBRES de los datos que devolvió Mercado Pago (sin valores), por si hay que ajustar el tipo de cuenta
+      cuenta = { nombre: nombreCuentaMP(u), ...tipoCuentaMP(u), sitio: u.site_id || null, campos: Object.keys(u) };
+    } catch (e) { avisos.push('No se pudieron leer los datos de la cuenta: ' + e.message); }
+    const sinId = () => Promise.reject(new Error('no se conoce el ID de la cuenta'));
+    const [rSaldo, rPagos] = await Promise.allSettled([mpId ? saldoMP(token, mpId) : sinId(), mpId ? traerPagosMP(token, mpId, dias) : sinId()]);
+    let saldo = null, resumen = null, serie = [], movimientos = [], moneda = 'CLP';
+    if (rSaldo.status === 'fulfilled') saldo = rSaldo.value;
+    else avisos.push(`El saldo exacto no está disponible por API en esta conexión (Mercado Pago respondió: ${rSaldo.reason.message}). Se muestra el dinero por liberar, calculado desde tus pagos.`);
+    if (rPagos.status === 'fulfilled') {
+      ({ resumen, serie, movimientos, moneda } = resumirPagosMP(rPagos.value.pagos, dias));
+      resumen.truncado = rPagos.value.truncado;
+    } else avisos.push('No se pudieron leer tus pagos: ' + rPagos.reason.message);
+    if (!cuenta && !saldo && !resumen) return res.status(502).json({ error: avisos[0] || 'Mercado Pago no respondió' });
+    const data = { actualizado: new Date().toISOString(), dias, moneda, cuenta, saldo, resumen, serie, movimientos, avisos };
+    mpCuentaCache.set(clave, { t: Date.now(), data });
+    res.json(data);
+  } catch (e) { fail(res, e, 'Error al consultar tu cuenta de Mercado Pago'); }
+});
+
 app.get('/api/mp/estado', auth, async (req, res) => {
   try { res.json({ conectado: !!(await pool.query('SELECT 1 FROM mp_cuentas WHERE user_id=$1', [req.userId])).rowCount }); }
   catch (e) { fail(res, e, 'Error al consultar Mercado Pago'); }
 });
 
 app.post('/api/mp/desconectar', auth, async (req, res) => {
-  try { await pool.query('DELETE FROM mp_cuentas WHERE user_id=$1', [req.userId]); res.json({ ok: true }); }
+  try { await pool.query('DELETE FROM mp_cuentas WHERE user_id=$1', [req.userId]); olvidarCuentaMP(req.userId); res.json({ ok: true }); }
   catch (e) { fail(res, e, 'Error al desconectar Mercado Pago'); }
 });
 
