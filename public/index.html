@@ -14,6 +14,7 @@ document.documentElement.setAttribute("data-vista",t?"cargando":(r==="entrar"||r
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%23185FA5'/><text y='44' x='8' font-size='42' font-family='sans-serif' font-weight='bold' fill='white'>V</text></svg>">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
 /* ── TOKENS ── */
 :root{
@@ -599,6 +600,7 @@ html[data-sesion="1"] .lp-solo-visita{display:none!important}
       <div style="text-align:right;margin-bottom:1.25rem"><a onclick="alert('Te enviaremos un correo para restablecer tu contraseña.')" style="font-size:13px;color:var(--blue);cursor:pointer">¿Olvidaste tu contraseña?</a></div>
       <button class="btn-login" onclick="doLogin()">Iniciar sesión</button>
       <div class="login-divider">o</div>
+      <div id="g-zona-login" style="display:none;margin-bottom:10px"><div id="g-btn-login" style="display:flex;justify-content:center;min-height:44px"></div></div>
       <button class="login-demo-btn" onclick="doDemo()">Entrar con cuenta demo</button>
       <div class="login-footer" style="margin-top:1rem">¿No tienes cuenta? <a onclick="showRegister()">Regístrate gratis</a></div>
     </div>
@@ -636,6 +638,11 @@ html[data-sesion="1"] .lp-solo-visita{display:none!important}
       </div>
       <p style="font-size:11.5px;color:var(--text3);line-height:1.5;margin:-2px 0 14px">Al crear la cuenta te llevamos a Mercado&nbsp;Pago para activar tus 14 días gratis del plan Principal. Te pedirá autorizar una tarjeta, pero no se cobra nada hasta el día 14, y puedes cancelar cuando quieras desde Planes.</p>
       <button class="btn-login" onclick="doRegister()">Crear cuenta gratis</button>
+      <div id="g-zona-registro" style="display:none">
+        <div class="login-divider">o</div>
+        <div id="g-btn-registro" style="display:flex;justify-content:center;min-height:44px"></div>
+        <div style="font-size:11px;color:var(--text3);text-align:center;margin-top:6px">Con Google usamos el país y la empresa que escribiste arriba, y verificamos tu correo.</div>
+      </div>
       <div class="login-footer" style="margin-top:1rem">¿Ya tienes cuenta? <a onclick="showLogin()">Inicia sesión</a></div>
     </div>
   </div>
@@ -1111,6 +1118,46 @@ async function doRegister(){
     await activarPrueba();
   }catch(e){alert(e.message);}
 }
+// ═══════════════════════════
+// CONTINUAR CON GOOGLE
+// ═══════════════════════════
+// El servidor entrega el ID de cliente de Google (variable GOOGLE_CLIENT_ID en Railway). Si no está configurada,
+// el botón no aparece y todo sigue funcionando solo con correo y contraseña.
+let G_CLIENT=null,G_LISTO=false;
+async function gConfigurar(){
+  try{
+    const c=await api('/config');
+    if(!c||!c.googleClientId)return;
+    G_CLIENT=c.googleClientId;gEsperarLibreria(0);
+  }catch(e){}
+}
+function gEsperarLibreria(n){   // la librería de Google carga aparte: se espera hasta ~10 s
+  if(window.google&&google.accounts&&google.accounts.id){
+    google.accounts.id.initialize({client_id:G_CLIENT,callback:gAlCredencial,ux_mode:'popup'});
+    G_LISTO=true;
+    ['g-zona-login','g-zona-registro'].forEach(id=>{const z=document.getElementById(id);if(z)z.style.display='';});
+    gRender();return;
+  }
+  if(n<50)setTimeout(()=>gEsperarLibreria(n+1),200);
+}
+function gRender(){
+  if(!G_LISTO)return;
+  ['g-btn-login','g-btn-registro'].forEach(id=>{
+    const el=document.getElementById(id);if(!el)return;
+    el.innerHTML='';
+    google.accounts.id.renderButton(el,{type:'standard',theme:'outline',size:'large',text:'continue_with',shape:'rectangular',locale:'es-419',width:Math.max(200,Math.min(340,el.clientWidth||340))});
+  });
+}
+async function gAlCredencial(resp){
+  if(!resp||!resp.credential)return;
+  const campoEmpresa=[...document.getElementById('register-view').querySelectorAll('input')][4];
+  const empresa=campoEmpresa?campoEmpresa.value.trim():'';
+  try{
+    const d=await api('/auth/google','POST',{credential:resp.credential,empresa,ivaPorc:rIvaElegido()});
+    await sesion(d);
+    if(d.nuevo)await activarPrueba();   // cuenta nueva: igual que al registrarse, se pasa a activar los 14 días gratis
+  }catch(e){alert(e.message);}
+}
 function doDemo(){DEMO=true;entrar();}
 async function autoLogin(){
   if(!TOKEN){SESION_PENDIENTE=false;aplicarRuta();return;}
@@ -1123,10 +1170,12 @@ function showLogin(){irA('entrar');}
 function vistaRegistro(){
   document.getElementById('login-view').style.display='none';
   document.getElementById('register-view').style.display='block';
+  gRender();
 }
 function vistaLogin(){
   document.getElementById('register-view').style.display='none';
   document.getElementById('login-view').style.display='block';
+  gRender();
 }
 
 // ═══════════════════════════
@@ -1944,7 +1993,7 @@ function lpIr(e,id){   // desplazamiento dentro de la portada (no toca la direcc
 }
 window.addEventListener('popstate',alCambiarHistorial);window.addEventListener('hashchange',alCambiarHistorial);
 lpRender();
-autoLogin();mpCargarEstado();revisarMP();revisarPrueba();rPaisDetectar();
+autoLogin();mpCargarEstado();revisarMP();revisarPrueba();rPaisDetectar();gConfigurar();
 document.getElementById('f-fecha').value=dRel(30);
 document.getElementById('cfg-email').value='juan.rodriguez@email.com';
 setTheme('light');
