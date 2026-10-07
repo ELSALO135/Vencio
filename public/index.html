@@ -498,7 +498,7 @@ html[data-sesion="1"] .lp-solo-visita{display:none!important}
             <button type="button" class="lp-btn lp-btn-g lp-solo-visita" onclick="doDemo()">Ver cuenta demo</button>
             <a class="lp-btn lp-btn-p lp-btn-g lp-solo-sesion" href="#/dashboard">Ir a mi panel</a>
           </div>
-          <p class="lp-nota lp-solo-visita">Para crear la cuenta no pedimos tarjeta.</p>
+          <p class="lp-nota lp-solo-visita">Crea tu cuenta y activa 14 días gratis del plan Principal. Mercado&nbsp;Pago te pide la tarjeta para la prueba, pero no cobra nada hasta el día 14.</p>
         </div>
         <figure class="lp-vista" role="img" aria-label="Ejemplo de la lista de clientes de Vencio: Ana Torres está vencida hace 31 días, Camila Rojas vence en 3 días y Pedro Soto y Valentina Díaz están al día.">
           <div class="lp-vista-top" aria-hidden="true"><span>Clientes</span><span>Datos de ejemplo</span></div>
@@ -531,7 +531,7 @@ html[data-sesion="1"] .lp-solo-visita{display:none!important}
       <div class="lp-wrap">
         <h2 class="lp-h2" id="lp-h-emp">Empieza en tres pasos</h2>
         <ol class="lp-pasos">
-          <li><span class="lp-n" aria-hidden="true">1</span><h3>Crea tu cuenta</h3><p>Con tu nombre, tu correo, una contraseña y el nombre de tu empresa. No pedimos tarjeta.</p></li>
+          <li><span class="lp-n" aria-hidden="true">1</span><h3>Crea tu cuenta</h3><p>Con tu nombre, tu correo, una contraseña y el nombre de tu empresa. Luego activas 14 días gratis del plan Principal autorizando tu tarjeta en Mercado&nbsp;Pago, sin que te cobre nada hasta el día 14.</p></li>
           <li><span class="lp-n" aria-hidden="true">2</span><h3>Agrega a tus clientes</h3><p>Escríbelos a mano o impórtalos desde tu tienda WooCommerce o Shopify.</p></li>
           <li><span class="lp-n" aria-hidden="true">3</span><h3>Empieza a cobrar</h3><p>Conecta Mercado&nbsp;Pago, crea el link de pago de cada cliente o activa el cobro mensual automático.</p></li>
         </ol>
@@ -551,7 +551,7 @@ html[data-sesion="1"] .lp-solo-visita{display:none!important}
       <div class="lp-wrap">
         <h2 class="lp-h2" id="lp-h-faq">Preguntas frecuentes</h2>
         <div class="lp-faq">
-          <details><summary>¿Necesito tarjeta para crear la cuenta?</summary><p>No. Para crearla pedimos tu nombre, tu correo, una contraseña y el nombre de tu empresa.</p></details>
+          <details><summary>¿Necesito tarjeta de crédito?</summary><p>Para crear la cuenta no. Pero para activar los 14 días de prueba gratis del plan Principal, Mercado&nbsp;Pago te pide autorizar una tarjeta: no te cobra nada hasta que termina la prueba, y puedes cancelarla cuando quieras desde Planes.</p></details>
           <details><summary>¿Puedo probar Vencio antes de registrarme?</summary><p>Sí. La cuenta demo trae empresas y clientes de ejemplo para que recorras el panel. Lo que hagas en ella no se guarda.</p></details>
           <details><summary>¿A dónde llega el dinero que cobro?</summary><p>A tu cuenta de Mercado&nbsp;Pago. Los cobros se crean desde tu cuenta, así que el dinero llega directo a ella.</p></details>
           <details><summary>¿Es seguro conectar mi cuenta de Mercado&nbsp;Pago?</summary><p>La conexión usa la autorización oficial de Mercado&nbsp;Pago, así que nunca vemos tu contraseña. Guardamos el acceso cifrado y puedes desconectarlo cuando quieras desde Integraciones.</p></details>
@@ -604,7 +604,7 @@ html[data-sesion="1"] .lp-solo-visita{display:none!important}
     </div>
     <div id="register-view" style="display:none">
       <div class="login-title">Crea tu cuenta gratis</div>
-      <div class="login-sub">14 días de prueba sin tarjeta de crédito</div>
+      <div class="login-sub">14 días gratis del plan Principal al crear tu cuenta</div>
       <div class="frow">
         <div class="fg"><label class="fl">Nombre</label><input class="fi" type="text" placeholder="Juan"></div>
         <div class="fg"><label class="fl">Apellido</label><input class="fi" type="text" placeholder="Rodríguez"></div>
@@ -612,6 +612,7 @@ html[data-sesion="1"] .lp-solo-visita{display:none!important}
       <div class="fg"><label class="fl">Correo electrónico</label><input class="fi" type="email" placeholder="tu@email.com"></div>
       <div class="fg"><label class="fl">Contraseña</label><input class="fi" type="password" placeholder="Mínimo 8 caracteres"></div>
       <div class="fg"><label class="fl">Nombre de tu empresa</label><input class="fi" type="text" placeholder="Mi Empresa SpA"></div>
+      <p style="font-size:11.5px;color:var(--text3);line-height:1.5;margin:-2px 0 14px">Al crear la cuenta te llevamos a Mercado&nbsp;Pago para activar tus 14 días gratis del plan Principal. Te pedirá autorizar una tarjeta, pero no se cobra nada hasta el día 14, y puedes cancelar cuando quieras desde Planes.</p>
       <button class="btn-login" onclick="doRegister()">Crear cuenta gratis</button>
       <div class="login-footer" style="margin-top:1rem">¿Ya tienes cuenta? <a onclick="showLogin()">Inicia sesión</a></div>
     </div>
@@ -850,6 +851,7 @@ html[data-sesion="1"] .lp-solo-visita{display:none!important}
       <!-- PLANES -->
       <div class="sec" id="s-planes">
         <div class="sec-hdr"><div class="sec-hdr-ico" style="background:#FFF0C0"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#7A5800" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div><div class="sec-hdr-txt"><h2>Elige tu plan</h2><p>Cambia o cancela cuando quieras</p></div></div>
+        <div id="prueba-banner"></div>
         <div class="pgrid">
           <div class="pc"><div><div class="pname">Principal</div><div class="pdesc">Para comenzar</div><div class="pprice">$7.990 <span>CLP / 30 días</span></div></div><div class="pdiv"></div><div class="pf"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3B6D11" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> 1 empresa</div><div class="pf"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3B6D11" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> 50 clientes</div><div class="pf"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3B6D11" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Semáforo + Score</div><div class="pf no"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A8A49C" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Cobros automáticos</div><div class="pbtn"><button onclick="selPlan('Principal')">Seleccionar</button></div></div>
           <div class="pc"><div><div class="pname">Plus</div><div class="pdesc">2 negocios</div><div class="pprice">$16.990 <span>CLP / 30 días</span></div></div><div class="pdiv"></div><div class="pf"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3B6D11" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> 2 empresas</div><div class="pf"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3B6D11" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> 200 clientes</div><div class="pf"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3B6D11" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Cobros automáticos</div><div class="pf"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3B6D11" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> 1 moderador</div><div class="pbtn"><button onclick="selPlan('Plus')">Seleccionar</button></div></div>
@@ -1057,7 +1059,10 @@ async function doRegister(){
   const [n,a,email,password,empresa]=[...document.getElementById('register-view').querySelectorAll('input')].map(x=>x.value.trim());
   if(!n||!email||!password||!empresa)return alert('Completa nombre, correo, contraseña y empresa.');
   if(password.length<8)return alert('La contraseña debe tener al menos 8 caracteres.');
-  try{await sesion(await api('/auth/register','POST',{nombre:(n+' '+a).trim(),email,password,empresa}));}catch(e){alert(e.message);}
+  try{
+    await sesion(await api('/auth/register','POST',{nombre:(n+' '+a).trim(),email,password,empresa}));
+    await activarPrueba();
+  }catch(e){alert(e.message);}
 }
 function doDemo(){DEMO=true;entrar();}
 async function autoLogin(){
@@ -1760,6 +1765,7 @@ function mostrarSeccion(el,sec){
   if(sec==='finanzas')renderFinanzas();
   if(sec==='integraciones')mpCargarCuenta();
   if(sec==='calendario')renderCalendario();
+  if(sec==='planes')cargarEstadoPrueba();
   closeMobileSidebar();
 }
 
@@ -1774,6 +1780,40 @@ async function revisarPago(){
   if(q==='ok'){try{const d=await api('/pagos');if(d.plan)setPlanUI(d.plan);}catch(e){}alert('✓ Pago recibido. Tu plan fue activado.');}
   else if(q==='pendiente')alert('Tu pago está pendiente de confirmación. Se activará apenas se confirme.');
   else alert('El pago no se completó. Puedes intentarlo de nuevo.');
+}
+
+// ═══════════════════════════
+// PRUEBA GRATIS DE 14 DÍAS (plan Principal, con cobro automático real al vencer)
+// ═══════════════════════════
+async function activarPrueba(){
+  if(DEMO||!TOKEN)return;
+  try{const d=await api('/pagos/prueba','POST',{});location.href=d.url;}
+  catch(e){alert('Tu cuenta quedó creada, pero no se pudo activar la prueba gratis: '+e.message+'\n\nPuedes activarla más tarde desde Planes.');}
+}
+async function cancelarPrueba(){
+  if(!confirm('¿Cancelar la renovación automática de tu prueba gratis? Mantienes el plan Principal hasta que termine el período ya vigente, pero Mercado Pago no te cobrará después.'))return;
+  try{await api('/pagos/prueba/cancelar','POST',{});await cargarEstadoPrueba();alert('Listo, la renovación automática quedó cancelada.');}catch(e){alert(e.message);}
+}
+function actualizarEstadoPrueba(d){
+  const el=document.getElementById('prueba-banner');if(!el)return;
+  if(!d||d.trial_usado===undefined){el.innerHTML='';return;}
+  const tarjeta=(tit,txt,btn)=>`<div class="card" style="padding:1rem 1.25rem;margin-bottom:1.25rem;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap"><div><div style="font-weight:600;font-size:14px;margin-bottom:3px">${tit}</div><div style="font-size:12.5px;color:var(--text2);line-height:1.5">${txt}</div></div>${btn||''}</div>`;
+  if(!d.trial_usado&&!d.prueba_estado){
+    el.innerHTML=tarjeta('¿Todavía no activas tus 14 días gratis?','Activa el plan Principal gratis por 14 días. Mercado Pago te pedirá autorizar tu tarjeta, pero no se cobra nada hasta que termine la prueba, y puedes cancelarla cuando quieras.','<button class="btn btn-p" onclick="activarPrueba()">Activar prueba gratis</button>');
+  }else if(d.prueba_estado==='pending'){
+    el.innerHTML=tarjeta('Autorización pendiente','Iniciaste la activación de tu prueba gratis, pero la autorización de la tarjeta no se completó todavía.','<button class="btn" onclick="activarPrueba()">Reintentar</button>');
+  }else if(d.prueba_estado==='authorized'){
+    el.innerHTML=tarjeta('✓ Prueba gratis activa','Tienes el plan Principal gratis. Al terminar el período de prueba, Mercado Pago cobrará $7.990 automáticamente cada 30 días hasta que la cancels.','<button class="btn" onclick="cancelarPrueba()">Cancelar renovación</button>');
+  }else if(d.prueba_estado==='cancelled'){
+    el.innerHTML=tarjeta('Prueba cancelada','Cancelaste la renovación automática. Mantienes el acceso al plan hasta la fecha ya vigente.','');
+  }else el.innerHTML='';
+}
+async function cargarEstadoPrueba(){if(DEMO||!TOKEN)return;try{actualizarEstadoPrueba(await api('/pagos'));}catch(e){}}
+async function revisarPrueba(){
+  const q=new URLSearchParams(location.search).get('prueba');if(!q||DEMO||!TOKEN)return;
+  history.replaceState(null,'',location.pathname+location.hash);
+  if(q==='ok'){try{const d=await api('/pagos');if(d.plan)setPlanUI(d.plan);actualizarEstadoPrueba(d);}catch(e){}alert('✓ Quedaste con 14 días gratis del plan Principal. Mercado Pago cobrará automáticamente cuando termine la prueba, salvo que la cancels antes desde Planes.');}
+  else{await cargarEstadoPrueba();alert('No se completó la autorización de la tarjeta, así que la prueba gratis no quedó activada. Puedes intentarlo de nuevo desde Planes.');}
 }
 function guardarConfig(){const n=document.getElementById('cfg-nombre').value.trim();const iva=parseInt(document.getElementById('cfg-iva').value)||19;if(n){CONFIG.nombre=n;CONFIG.iniciales=n.split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();refreshUser();}CONFIG.ivaPorc=iva;alert('Guardado.');renderAll();}
 
@@ -1857,7 +1897,7 @@ function lpIr(e,id){   // desplazamiento dentro de la portada (no toca la direcc
 }
 window.addEventListener('popstate',alCambiarHistorial);window.addEventListener('hashchange',alCambiarHistorial);
 lpRender();
-autoLogin();mpCargarEstado();revisarMP();
+autoLogin();mpCargarEstado();revisarMP();revisarPrueba();
 document.getElementById('f-fecha').value=dRel(30);
 document.getElementById('cfg-email').value='juan.rodriguez@email.com';
 setTheme('light');
