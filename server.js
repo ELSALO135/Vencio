@@ -11,6 +11,9 @@ const APP_URL = (process.env.APP_URL || 'https://vencio-production.up.railway.ap
 // Precios en CLP por 30 días. AJÚSTALOS a lo que quieras cobrar.
 // Si los cambias, cámbialos también en index.html: PLANES_LP (portada) y la pantalla "Planes" de la app.
 const PLANES = { Principal: 7990, Plus: 16990, Pro: 27990, Omnibus: 59990 };
+// Prueba gratis: 14 días del plan Principal. Mercado Pago pide la tarjeta al activarla (no se cobra nada hasta
+// el día 14) y luego cobra solo, cada 30 días, hasta que el usuario cancele. Solo se puede usar una vez por cuenta.
+const DIAS_PRUEBA = 14, PLAN_PRUEBA = 'Principal';
 // SEGURIDAD: límites reales de cada plan, validados en el servidor (el navegador no es de fiar).
 // 'basico' es el plan de las cuentas nuevas o con el plan vencido. AJUSTA estos números a tu gusto.
 const LIMITES_PLAN = {
@@ -215,7 +218,29 @@ app.post('/api/mp/webhook', async (req, res) => {
       else if (ref.startsWith('COB-')) await procesarCobroCliente(ref, pago);
     } else if (tipo === 'preapproval') {
       const pre = await mpCall('GET', `/preapproval/${id}`, MP_ACCESS_TOKEN);
-      await procesarSuscripcion(pre);
+      const esPrueba = (await pool.query('SELECT 1 FROM vencio_suscripciones WHERE preapproval_id=$1', [pre.id])).rowCount;
+      if (esPrueba) await aplicarPrueba(pre); else await procesarSuscripcion(pre);
+    } else if (tipo === 'subscription_authorized_payment' || tipo === 'authorized_payment') {
+      // Cobro recurrente de una suscripción (el que hace Mercado Pago solo, cada mes). Por ahora solo se usa
+      // para la prueba gratis de Vencio; las membresías de los clientes finales no se suman a este historial.
+      const fact = await mpCall('GET', `/authorized_payments/${id}`, MP_ACCESS_TOKEN);
+      const pago = fact.payment;
+      if (fact.preapproval_id && pago && pago.status === 'approved') {
+        const ya = (await pool.query('SELECT 1 FROM pagos WHERE mp_payment_id=$1', [String(pago.id)])).rowCount;
+        if (!ya) {
+          const sus = (await pool.query('SELECT user_id FROM vencio_suscripciones WHERE preapproval_id=$1', [fact.preapproval_id])).rows[0];
+          if (sus) {
+            const orden = `TRIAL-renew-${pago.id}`;
+            await pool.query(
+              `INSERT INTO pagos(user_id,commerce_order,plan,monto,estado,mp_payment_id,pagado_at)
+               VALUES($1,$2,$3,$4,'pagado',$5,NOW())`,
+              [sus.user_id, orden, PLAN_PRUEBA, PLANES[PLAN_PRUEBA], String(pago.id)]);
+            await pool.query(
+              `UPDATE users SET plan=$1, plan_vence=GREATEST(COALESCE(plan_vence,NOW()),NOW()) + INTERVAL '30 days' WHERE id=$2`,
+              [PLAN_PRUEBA, sus.user_id]);
+          }
+        }
+      }
     }
     res.sendStatus(200);
   } catch (e) { console.error('Webhook MP:', e.message); res.sendStatus(200); }
@@ -239,11 +264,66 @@ app.get('/api/pagos/retorno', async (req, res) => {
 app.get('/api/pagos', auth, async (req, res) => {
   try {
     await planVigente(req.userId);
-    const u = (await pool.query('SELECT plan,plan_vence FROM users WHERE id=$1', [req.userId])).rows[0];
+    const u = (await pool.query('SELECT plan,plan_vence,trial_usado FROM users WHERE id=$1', [req.userId])).rows[0];
     const pagos = (await pool.query(
       'SELECT plan,monto,estado,created_at,pagado_at FROM pagos WHERE user_id=$1 ORDER BY id DESC LIMIT 20', [req.userId])).rows;
-    res.json({ plan: u.plan, plan_vence: u.plan_vence, pagos });
+    const sus = (await pool.query('SELECT estado FROM vencio_suscripciones WHERE user_id=$1', [req.userId])).rows[0];
+    res.json({ plan: u.plan, plan_vence: u.plan_vence, pagos, trial_usado: u.trial_usado, prueba_estado: sus ? sus.estado : null });
   } catch (e) { fail(res, e, 'Error al cargar los pagos'); }
+});
+
+// ── Prueba gratis de 14 días (plan Principal), con cobro automático real al vencer ──
+// 1) El usuario activa la prueba: se crea una SUSCRIPCIÓN en Mercado Pago (preapproval) con "free_trial" de 14
+//    días. Mercado Pago pide la tarjeta ahora pero no cobra nada hasta que el período gratis termine.
+app.post('/api/pagos/prueba', auth, async (req, res) => {
+  try {
+    if (!MP_ACCESS_TOKEN) return res.status(503).json({ error: 'Los pagos aún no están configurados' });
+    const u = (await pool.query('SELECT email,trial_usado FROM users WHERE id=$1', [req.userId])).rows[0];
+    if (u.trial_usado) return res.status(400).json({ error: 'Ya usaste tu prueba gratis de 14 días' });
+    const pre = await mpCall('POST', '/preapproval', MP_ACCESS_TOKEN, {
+      reason: `Vencio - Plan ${PLAN_PRUEBA} (prueba ${DIAS_PRUEBA} días)`, external_reference: `TRIAL-${req.userId}`,
+      payer_email: u.email, back_url: `${APP_URL}/api/pagos/retorno-prueba`, status: 'pending',
+      auto_recurring: {
+        frequency: 1, frequency_type: 'months', transaction_amount: PLANES[PLAN_PRUEBA], currency_id: 'CLP',
+        free_trial: { frequency: DIAS_PRUEBA, frequency_type: 'days' } } });
+    await pool.query(
+      `INSERT INTO vencio_suscripciones(user_id,preapproval_id,estado) VALUES($1,$2,'pending')
+       ON CONFLICT(user_id) DO UPDATE SET preapproval_id=$2, estado='pending'`, [req.userId, pre.id]);
+    res.json({ url: pre.init_point });
+  } catch (e) { fail(res, e, 'No se pudo activar la prueba gratis'); }
+});
+
+// Aplica el resultado de la suscripción de prueba (lo usan el webhook y el retorno, de forma idempotente).
+// Solo activa el plan Principal la PRIMERA vez que la suscripción queda autorizada (trial_usado evita que una
+// reautorización posterior, o un reintento de Mercado Pago, vuelva a extender el período gratis).
+const aplicarPrueba = async pre => {
+  const up = await pool.query('UPDATE vencio_suscripciones SET estado=$1 WHERE preapproval_id=$2 RETURNING user_id',
+    [pre.status, pre.id]);
+  if (!up.rowCount) return;
+  if (pre.status === 'authorized') await pool.query(
+    `UPDATE users SET plan=$1, plan_vence=NOW() + ($2||' days')::interval, trial_usado=TRUE
+     WHERE id=$3 AND trial_usado=FALSE`, [PLAN_PRUEBA, DIAS_PRUEBA, up.rows[0].user_id]);
+};
+
+// 2) El usuario vuelve desde Mercado Pago tras autorizar (o cancelar) la tarjeta de la prueba
+app.get('/api/pagos/retorno-prueba', async (req, res) => {
+  try {
+    const id = req.query.preapproval_id;
+    if (id && MP_ACCESS_TOKEN) await aplicarPrueba(await mpCall('GET', `/preapproval/${id}`, MP_ACCESS_TOKEN));
+    res.redirect(303, `/?prueba=${id ? 'ok' : 'error'}`);
+  } catch (e) { console.error(e); res.redirect(303, '/?prueba=error'); }
+});
+
+// 3) Cancelar la suscripción de la prueba ANTES de que Mercado Pago cobre al día 14 (o más adelante, para que
+//    no se renueve el mes siguiente). El acceso al plan Principal se mantiene hasta la fecha ya pagada/gratis.
+app.post('/api/pagos/prueba/cancelar', auth, async (req, res) => {
+  try {
+    const r = (await pool.query('SELECT preapproval_id FROM vencio_suscripciones WHERE user_id=$1', [req.userId])).rows[0];
+    if (!r) return res.status(404).json({ error: 'No tienes una suscripción de prueba activa' });
+    if (MP_ACCESS_TOKEN) await mpCall('PUT', `/preapproval/${r.preapproval_id}`, MP_ACCESS_TOKEN, { status: 'cancelled' }).catch(() => {});
+    await pool.query("UPDATE vencio_suscripciones SET estado='cancelled' WHERE user_id=$1", [req.userId]);
+    res.json({ ok: true });
+  } catch (e) { fail(res, e, 'No se pudo cancelar la prueba'); }
 });
 
 // ── WooCommerce / Shopify: traer clientes automáticamente a Vencio ──
@@ -848,6 +928,11 @@ app.post('/api/mp/clientes/:clienteId/cancelar-suscripcion', auth, async (req, r
       user_id INT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
       estado JSONB NOT NULL DEFAULT '{}', updated_at TIMESTAMP DEFAULT NOW());
     ALTER TABLE users ADD COLUMN IF NOT EXISTS plan_vence TIMESTAMP;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS trial_usado BOOLEAN NOT NULL DEFAULT FALSE;
+    -- Suscripción (preapproval) de Mercado Pago que arma la prueba gratis de 14 días. Una por usuario.
+    CREATE TABLE IF NOT EXISTS vencio_suscripciones(
+      user_id INT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, preapproval_id VARCHAR(100) NOT NULL,
+      estado VARCHAR(20) NOT NULL DEFAULT 'pending', created_at TIMESTAMP DEFAULT NOW());
     CREATE TABLE IF NOT EXISTS pagos(
       id SERIAL PRIMARY KEY, user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       commerce_order VARCHAR(100) UNIQUE NOT NULL, mp_payment_id VARCHAR(50),
