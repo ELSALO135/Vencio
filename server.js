@@ -9,7 +9,8 @@ if (!process.env.DATABASE_URL || !JWT_SECRET) {
 }
 const APP_URL = (process.env.APP_URL || 'https://vencio-production.up.railway.app').replace(/\/$/, '');
 // Precios en CLP por 30 días. AJÚSTALOS a lo que quieras cobrar.
-const PLANES = { Principal: 13000, Plus: 22000, Pro: 36000, Omnibus: 64000 };
+// Si los cambias, cámbialos también en index.html: PLANES_LP (portada) y la pantalla "Planes" de la app.
+const PLANES = { Principal: 7990, Plus: 16990, Pro: 27990, Omnibus: 59990 };
 // SEGURIDAD: límites reales de cada plan, validados en el servidor (el navegador no es de fiar).
 // 'basico' es el plan de las cuentas nuevas o con el plan vencido. AJUSTA estos números a tu gusto.
 const LIMITES_PLAN = {
