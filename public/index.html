@@ -3,7 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Vencio — Panel</title>
+<title>Vencio — Gestiona los cobros y vencimientos de tus clientes</title>
+<meta name="description" content="Vencio ordena las cuotas y suscripciones de tus clientes, marca cuáles están vencidas y te deja cobrarlas con tu cuenta de Mercado Pago.">
+<script>
+// Decide qué se ve ANTES de pintar la página: si hay sesión guardada no se muestra ni la portada ni el login (evita el parpadeo).
+(function(){var t=null;try{t=localStorage.getItem("vencio_token");}catch(e){}
+var r=(location.hash||"").replace(/^#\/?/,"");
+document.documentElement.setAttribute("data-vista",t?"cargando":(r==="entrar"||r==="registro")?"login":"landing");})();
+</script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%23185FA5'/><text y='44' x='8' font-size='42' font-family='sans-serif' font-weight='bold' fill='white'>V</text></svg>">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -326,13 +333,258 @@ tr:hover td{background:var(--surface2)}
 }
 ::-webkit-scrollbar{width:5px}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:10px}
+
+/* ── VISTAS: portada / login / app ── */
+#landing,#lp-cargando{display:none}
+html[data-vista="landing"] #landing{display:block}
+html[data-vista="cargando"] #lp-cargando{display:flex}
+.login-screen{display:none}
+html[data-vista="login"] .login-screen{display:flex}
+html[data-vista="landing"] .app,html[data-vista="login"] .app,html[data-vista="cargando"] .app{display:none}
+#lp-cargando{position:fixed;inset:0;align-items:center;justify-content:center;background:var(--bg);z-index:50}
+.lp-volver{display:inline-block;font-size:13px;color:var(--text2);text-decoration:none;margin-bottom:1.25rem}
+.lp-volver:hover{color:var(--text)}
+
+/* ── PÁGINA PRINCIPAL ── */
+#landing{--lp-link:var(--blue);--lp-rojo:#A32D2D;--lp-ambar:#854F0B;--lp-verde:#3B6D11;background:var(--bg);color:var(--text);font-size:16px;line-height:1.5;min-height:100vh}
+[data-theme="dark"] #landing{--lp-link:#7DB4EE;--lp-rojo:#F09595;--lp-ambar:#EFB24F;--lp-verde:#8FCB5C}
+#landing [id^="lp-"]{scroll-margin-top:76px}
+.lp-wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+.lp-skip{position:absolute;left:-9999px;top:8px;background:var(--surface);color:var(--text);padding:8px 14px;border-radius:var(--r);border:.5px solid var(--border2);z-index:60}
+.lp-skip:focus{left:12px}
+#landing :focus-visible{outline:2px solid var(--lp-link);outline-offset:3px;border-radius:6px}
+.lp-header{position:sticky;top:0;z-index:30;background:var(--bg);border-bottom:.5px solid var(--border2)}
+@supports (background:color-mix(in srgb,red 50%,blue)){.lp-header{background:color-mix(in srgb,var(--bg) 90%,transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}}
+.lp-header-in{display:flex;align-items:center;gap:28px;height:64px}
+.lp-logo{display:flex;align-items:center;gap:10px;text-decoration:none;font-size:21px;font-weight:500;letter-spacing:-.5px;color:var(--text)}
+.lp-logo-ico{width:32px;height:32px;background:var(--blue);border-radius:9px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 10px rgba(24,95,165,.3)}
+.lp-nav{display:flex;gap:6px;margin-right:auto}
+.lp-nav a{padding:8px 12px;border-radius:var(--r);font-size:14.5px;color:var(--text2);text-decoration:none}
+.lp-nav a:hover{color:var(--text);background:var(--surface2)}
+.lp-acciones{display:flex;align-items:center;gap:8px;margin-left:auto}
+.lp-nav+.lp-acciones{margin-left:0}
+.lp-link{padding:8px 12px;font-size:14.5px;font-weight:500;color:var(--text);text-decoration:none;border-radius:var(--r)}
+.lp-link:hover{background:var(--surface2)}
+.lp-icon-btn{width:38px;height:38px;border-radius:var(--r);border:.5px solid var(--border2);background:transparent;color:var(--text2);display:flex;align-items:center;justify-content:center;cursor:pointer}
+.lp-icon-btn:hover{background:var(--surface2);color:var(--text)}
+.lp-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:42px;padding:0 18px;border-radius:var(--r);font-family:inherit;font-size:14.5px;font-weight:500;line-height:1;border:.5px solid var(--border2);background:var(--surface);color:var(--text);cursor:pointer;text-decoration:none;white-space:nowrap}
+.lp-btn:hover{background:var(--surface2)}
+.lp-btn.lp-btn-p{background:var(--blue);border-color:var(--blue);color:#fff}
+.lp-btn.lp-btn-p:hover{background:#0C447C;border-color:#0C447C}
+.lp-btn-g{height:48px;padding:0 24px;font-size:15.5px}
+.lp-solo-sesion{display:none}
+html[data-sesion="1"] .lp-solo-sesion{display:inline-flex}
+html[data-sesion="1"] .lp-solo-visita{display:none!important}
+
+.lp-hero{padding:72px 0 80px}
+.lp-hero-in{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:64px;align-items:center}
+.lp-h1,.lp-h2{text-wrap:balance}
+.lp-lead,.lp-sub,.lp-feat p,.lp-pasos p,.lp-pie,.lp-faq details p{text-wrap:pretty}
+.lp-h1{font-size:clamp(34px,5vw,54px);line-height:1.06;letter-spacing:-.035em;font-weight:500;max-width:14em}
+.lp-lead{font-size:18.5px;line-height:1.55;color:var(--text2);max-width:32em;margin-top:22px}
+.lp-cta{display:flex;flex-wrap:wrap;gap:12px;margin-top:32px}
+.lp-nota{font-size:13.5px;color:var(--text2);margin-top:16px}
+.lp-vista{background:var(--surface);border:.5px solid var(--border2);border-radius:var(--rl);overflow:hidden;box-shadow:0 18px 40px -24px rgba(0,0,0,.28)}
+.lp-vista-top{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:.5px solid var(--border2);font-size:14.5px;font-weight:500}
+.lp-vista-top span+span{font-size:12.5px;font-weight:400;color:var(--text2)}
+.lp-fila{display:grid;grid-template-columns:12px minmax(0,1fr) auto;column-gap:16px;row-gap:2px;align-items:center;padding:16px 20px;border-bottom:.5px solid var(--border)}
+.lp-fila:last-child{border-bottom:0}
+.lp-fila .semaforo{grid-row:1/3}
+.lp-fila b{font-weight:500;font-size:15px}
+.lp-fila small{font-size:13px;color:var(--text2)}
+.lp-fila .lp-monto{grid-row:1;grid-column:3;text-align:right;font-weight:500;font-size:15px}
+.lp-fila .lp-tag{grid-row:2;grid-column:3;justify-self:end}
+.lp-tag{display:inline-block;font-size:12px;font-weight:500;padding:3px 10px;border-radius:99px;white-space:nowrap}
+@media (prefers-reduced-motion:reduce){.lp-fila .sem-red{animation:none}}
+.lp-tag-r{background:var(--red-l);color:var(--lp-rojo)}
+.lp-tag-a{background:var(--amber-l);color:var(--lp-ambar)}
+.lp-tag-v{background:var(--green-l);color:var(--lp-verde)}
+
+.lp-conecta{border-top:.5px solid var(--border2);border-bottom:.5px solid var(--border2);padding:22px 0}
+.lp-conecta-in{display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-size:15px;color:var(--text2)}
+.lp-pill{padding:6px 14px;border:.5px solid var(--border2);border-radius:99px;background:var(--surface);color:var(--text);font-weight:500;font-size:14.5px}
+
+.lp-sec{padding:88px 0}
+.lp-sec+.lp-sec{border-top:.5px solid var(--border2)}
+.lp-h2{font-size:clamp(26px,3.2vw,36px);line-height:1.12;letter-spacing:-.025em;font-weight:500;max-width:17em}
+.lp-sub{font-size:17.5px;line-height:1.55;color:var(--text2);max-width:36em;margin-top:14px}
+.lp-feats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:64px;margin-top:48px}
+.lp-feat{padding:24px 0 30px;border-top:.5px solid var(--border2)}
+.lp-feat h3{font-size:19px;font-weight:500;letter-spacing:-.015em;margin-bottom:8px}
+.lp-feat p{font-size:16px;line-height:1.6;color:var(--text2);max-width:30em}
+.lp-pasos{list-style:none;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:40px;margin-top:48px}
+.lp-pasos li{border-top:2px solid var(--blue);padding-top:20px}
+.lp-pasos .lp-n{display:block;font-size:30px;font-weight:500;letter-spacing:-.03em;color:var(--lp-link);line-height:1;margin-bottom:14px}
+.lp-pasos h3{font-size:19px;font-weight:500;letter-spacing:-.015em;margin-bottom:8px}
+.lp-pasos p{font-size:16px;line-height:1.6;color:var(--text2)}
+.lp-planes{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--border2);border:.5px solid var(--border2);border-radius:var(--rl);overflow:hidden;margin-top:44px}
+.lp-plan{background:var(--surface);padding:28px 24px;display:flex;flex-direction:column}
+.lp-plan h3{font-size:19px;font-weight:500;letter-spacing:-.015em}
+.lp-plan-para{font-size:14.5px;color:var(--text2);margin-top:2px}
+.lp-precio{margin-top:22px;font-size:14px;color:var(--text2)}
+.lp-precio span{display:block;font-size:34px;font-weight:500;letter-spacing:-.035em;color:var(--text);line-height:1.1}
+.lp-plan ul{list-style:none;margin:22px 0 26px;display:grid;gap:10px;font-size:15.5px}
+.lp-plan li{padding-top:10px;border-top:.5px solid var(--border)}
+.lp-plan .lp-btn{margin-top:auto}
+.lp-pie{font-size:14.5px;color:var(--text2);margin-top:20px;max-width:46em}
+.lp-faq{margin-top:36px;max-width:760px;border-bottom:.5px solid var(--border2)}
+.lp-faq details{border-top:.5px solid var(--border2)}
+.lp-faq summary{list-style:none;cursor:pointer;padding:20px 40px 20px 0;font-size:17.5px;font-weight:500;letter-spacing:-.01em;position:relative}
+.lp-faq summary::-webkit-details-marker{display:none}
+.lp-faq summary::after{content:"+";position:absolute;right:4px;top:16px;font-size:26px;font-weight:300;color:var(--text2);line-height:1}
+.lp-faq details[open] summary::after{content:"–"}
+.lp-faq details p{padding:0 40px 22px 0;font-size:16.5px;line-height:1.6;color:var(--text2);max-width:40em}
+.lp-final{padding:80px 0;border-top:.5px solid var(--border2)}
+.lp-footer{border-top:.5px solid var(--border2);padding:28px 0 36px;font-size:14px;color:var(--text2)}
+.lp-footer-in{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap}
+.lp-footer nav{display:flex;gap:18px}
+.lp-footer a{color:inherit;text-decoration:none}.lp-footer a:hover{color:var(--text)}
+@media (max-width:960px){
+  .lp-hero-in{grid-template-columns:minmax(0,1fr);gap:44px}
+  .lp-planes{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .lp-nav{display:none}.lp-acciones{margin-left:auto}
+}
+@media (max-width:720px){
+  .lp-wrap{padding:0 18px}
+  .lp-hero{padding:44px 0 56px}
+  .lp-sec{padding:60px 0}
+  .lp-feats{grid-template-columns:minmax(0,1fr)}
+  .lp-pasos{grid-template-columns:minmax(0,1fr);gap:28px}
+  .lp-header-in{gap:10px}
+  .lp-link{padding:8px 6px}
+  .lp-final{padding:60px 0}
+}
+@media (max-width:520px){
+  .lp-planes{grid-template-columns:minmax(0,1fr)}
+  .lp-cta .lp-btn{flex:1 1 100%}
+  .lp-logo{font-size:19px}
+  .lp-icon-btn{display:none}
+}
 </style>
 </head>
 <body>
 
+<!-- ═══ CARGA (mientras se revisa si hay sesión guardada) ═══ -->
+<div id="lp-cargando" aria-hidden="true"><div class="lp-logo-ico" style="width:44px;height:44px;border-radius:12px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 16l4-4 4 4 4-8"/></svg></div></div>
+
+<!-- ═══ PÁGINA PRINCIPAL ═══ -->
+<div id="landing">
+  <a class="lp-skip" href="#/" onclick="lpIr(event,'lp-main')">Saltar al contenido</a>
+  <header class="lp-header">
+    <div class="lp-wrap lp-header-in">
+      <a class="lp-logo" href="#/" aria-label="Vencio, ir al inicio" onclick="lpIr(event,'landing')"><span class="lp-logo-ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 16l4-4 4 4 4-8"/></svg></span>Vencio</a>
+      <nav class="lp-nav" aria-label="Secciones de la página">
+        <a href="#/" onclick="lpIr(event,'lp-que-hace')">Qué hace</a>
+        <a href="#/" onclick="lpIr(event,'lp-planes')">Planes</a>
+        <a href="#/" onclick="lpIr(event,'lp-faq')">Preguntas</a>
+      </nav>
+      <div class="lp-acciones">
+        <button type="button" class="lp-icon-btn" onclick="toggleDark()" aria-label="Cambiar entre tema claro y oscuro"><svg id="lp-dark-ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"></svg></button>
+        <a class="lp-link lp-solo-visita" href="#/entrar">Iniciar sesión</a>
+        <a class="lp-btn lp-btn-p lp-solo-visita" href="#/registro">Crear cuenta</a>
+        <a class="lp-btn lp-btn-p lp-solo-sesion" href="#/dashboard">Ir a mi panel</a>
+      </div>
+    </div>
+  </header>
+
+  <main id="lp-main" tabindex="-1" style="outline:none">
+    <section class="lp-hero" aria-labelledby="lp-h1">
+      <div class="lp-wrap lp-hero-in">
+        <div>
+          <h1 class="lp-h1" id="lp-h1">Ten claro quién te debe, cuánto y desde cuándo</h1>
+          <p class="lp-lead">Vencio ordena las cuotas y suscripciones de tus clientes, marca cuáles están vencidas y te deja cobrarlas con tu cuenta de Mercado&nbsp;Pago.</p>
+          <div class="lp-cta">
+            <a class="lp-btn lp-btn-p lp-btn-g lp-solo-visita" href="#/registro">Crear cuenta gratis</a>
+            <button type="button" class="lp-btn lp-btn-g lp-solo-visita" onclick="doDemo()">Ver cuenta demo</button>
+            <a class="lp-btn lp-btn-p lp-btn-g lp-solo-sesion" href="#/dashboard">Ir a mi panel</a>
+          </div>
+          <p class="lp-nota lp-solo-visita">Para crear la cuenta no pedimos tarjeta.</p>
+        </div>
+        <figure class="lp-vista" role="img" aria-label="Ejemplo de la lista de clientes de Vencio: Ana Torres está vencida hace 31 días, Camila Rojas vence en 3 días y Pedro Soto y Valentina Díaz están al día.">
+          <div class="lp-vista-top" aria-hidden="true"><span>Clientes</span><span>Datos de ejemplo</span></div>
+          <div class="lp-fila" aria-hidden="true"><span class="semaforo sem-red"></span><b>Ana Torres</b><small>Cuota 4 de 12</small><span class="lp-monto">$320.000</span><span class="lp-tag lp-tag-r">Vencida hace 31 días</span></div>
+          <div class="lp-fila" aria-hidden="true"><span class="semaforo sem-yellow"></span><b>Camila Rojas</b><small>Cuota 2 de 6</small><span class="lp-monto">$89.000</span><span class="lp-tag lp-tag-a">Vence en 3 días</span></div>
+          <div class="lp-fila" aria-hidden="true"><span class="semaforo sem-green"></span><b>Pedro Soto</b><small>Cuota 9 de 10</small><span class="lp-monto">$150.000</span><span class="lp-tag lp-tag-v">Al día</span></div>
+          <div class="lp-fila" aria-hidden="true"><span class="semaforo sem-green"></span><b>Valentina Díaz</b><small>Membresía mensual</small><span class="lp-monto">$35.000</span><span class="lp-tag lp-tag-v">Al día</span></div>
+        </figure>
+      </div>
+    </section>
+
+    <div class="lp-conecta"><div class="lp-wrap lp-conecta-in">Funciona con <span class="lp-pill">Mercado&nbsp;Pago</span><span class="lp-pill">WooCommerce</span><span class="lp-pill">Shopify</span></div></div>
+
+    <section class="lp-sec" id="lp-que-hace" aria-labelledby="lp-h-que">
+      <div class="lp-wrap">
+        <h2 class="lp-h2" id="lp-h-que">Lo que puedes hacer con Vencio</h2>
+        <p class="lp-sub">Pensado para negocios que cobran en cuotas o con membresías mensuales.</p>
+        <div class="lp-feats">
+          <div class="lp-feat"><h3>Cada cliente con su cuota y su historial</h3><p>Guarda el monto, las cuotas pagadas, el próximo vencimiento, los pagos y las notas de cada cliente, ya sea que pague en cuotas o con membresía.</p></div>
+          <div class="lp-feat"><h3>Semáforo de pagos</h3><p>Mira quién está al día, quién vence pronto y quién está vencido, con los días de atraso y un puntaje de pago por cliente.</p></div>
+          <div class="lp-feat"><h3>Cobra con tu cuenta de Mercado&nbsp;Pago</h3><p>Conecta tu cuenta, crea un link de pago para cada cliente o activa un cobro mensual automático. El dinero llega a tu cuenta.</p></div>
+          <div class="lp-feat"><h3>Conecta tu tienda online</h3><p>Si vendes con WooCommerce o Shopify, tus clientes nuevos y tus pedidos llegan solos a Vencio.</p></div>
+          <div class="lp-feat"><h3>Varias empresas, un solo panel</h3><p>Lleva cada negocio por separado, con sus ingresos, costos y ganancia, y revisa todos los vencimientos en un calendario.</p></div>
+          <div class="lp-feat"><h3>Reportes para descargar</h3><p>Descarga el resumen de clientes, las cuotas vencidas, el historial de pagos y el IVA en Excel, o el estado de cuenta de un cliente en PDF.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="lp-sec" id="lp-empezar" aria-labelledby="lp-h-emp">
+      <div class="lp-wrap">
+        <h2 class="lp-h2" id="lp-h-emp">Empieza en tres pasos</h2>
+        <ol class="lp-pasos">
+          <li><span class="lp-n" aria-hidden="true">1</span><h3>Crea tu cuenta</h3><p>Con tu nombre, tu correo, una contraseña y el nombre de tu empresa. No pedimos tarjeta.</p></li>
+          <li><span class="lp-n" aria-hidden="true">2</span><h3>Agrega a tus clientes</h3><p>Escríbelos a mano o impórtalos desde tu tienda WooCommerce o Shopify.</p></li>
+          <li><span class="lp-n" aria-hidden="true">3</span><h3>Empieza a cobrar</h3><p>Conecta Mercado&nbsp;Pago, crea el link de pago de cada cliente o activa el cobro mensual automático.</p></li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="lp-sec" id="lp-planes" aria-labelledby="lp-h-pl">
+      <div class="lp-wrap">
+        <h2 class="lp-h2" id="lp-h-pl">Planes</h2>
+        <p class="lp-sub">Los precios están en pesos chilenos y valen por 30 días. Pagas con Mercado&nbsp;Pago desde dentro de Vencio.</p>
+        <div class="lp-planes" id="lp-planes-grid"></div>
+        <p class="lp-pie">Primero creas tu cuenta, que es gratis, y el plan lo eliges dentro de Vencio cuando lo necesites. Los moderadores son personas de tu equipo que supervisan los cobros de cada empresa.</p>
+      </div>
+    </section>
+
+    <section class="lp-sec" id="lp-faq" aria-labelledby="lp-h-faq">
+      <div class="lp-wrap">
+        <h2 class="lp-h2" id="lp-h-faq">Preguntas frecuentes</h2>
+        <div class="lp-faq">
+          <details><summary>¿Necesito tarjeta para crear la cuenta?</summary><p>No. Para crearla pedimos tu nombre, tu correo, una contraseña y el nombre de tu empresa.</p></details>
+          <details><summary>¿Puedo probar Vencio antes de registrarme?</summary><p>Sí. La cuenta demo trae empresas y clientes de ejemplo para que recorras el panel. Lo que hagas en ella no se guarda.</p></details>
+          <details><summary>¿A dónde llega el dinero que cobro?</summary><p>A tu cuenta de Mercado&nbsp;Pago. Los cobros se crean desde tu cuenta, así que el dinero llega directo a ella.</p></details>
+          <details><summary>¿Es seguro conectar mi cuenta de Mercado&nbsp;Pago?</summary><p>La conexión usa la autorización oficial de Mercado&nbsp;Pago, así que nunca vemos tu contraseña. Guardamos el acceso cifrado y puedes desconectarlo cuando quieras desde Integraciones.</p></details>
+          <details><summary>¿Qué pasa si llego al límite de clientes de mi plan?</summary><p>No podrás agregar más clientes hasta cambiar a un plan con más capacidad. Los que ya tienes se mantienen.</p></details>
+        </div>
+      </div>
+    </section>
+
+    <section class="lp-final" aria-labelledby="lp-h-fin">
+      <div class="lp-wrap">
+        <h2 class="lp-h2" id="lp-h-fin">Ordena tus cobros desde hoy</h2>
+        <p class="lp-sub">Crea tu cuenta gratis y carga a tus primeros clientes.</p>
+        <div class="lp-cta">
+          <a class="lp-btn lp-btn-p lp-btn-g lp-solo-visita" href="#/registro">Crear cuenta gratis</a>
+          <button type="button" class="lp-btn lp-btn-g lp-solo-visita" onclick="doDemo()">Ver cuenta demo</button>
+          <a class="lp-btn lp-btn-p lp-btn-g lp-solo-sesion" href="#/dashboard">Ir a mi panel</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="lp-footer">
+    <div class="lp-wrap lp-footer-in">
+      <span>© <span id="lp-anio"></span> Vencio</span>
+      <nav class="lp-solo-visita" aria-label="Acceso"><a href="#/entrar">Iniciar sesión</a><a href="#/registro">Crear cuenta</a></nav>
+    </div>
+  </footer>
+</div>
+
 <!-- ═══ LOGIN ═══ -->
 <div class="login-screen" id="login-screen">
   <div class="login-box">
+    <a class="lp-volver" href="#/">← Volver al inicio</a>
     <div class="login-logo">
       <div class="login-logo-ico">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 16l4-4 4 4 4-8"/></svg>
@@ -453,7 +705,7 @@ tr:hover td{background:var(--surface2)}
       <div class="sec active" id="s-dashboard">
         <div class="ctabs" id="emp-tabs"></div>
         <div class="metrics" id="metrics-row"></div>
-        <div class="abanner" id="alert-banner"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span id="alert-txt"></span><span class="alink" onclick="navTo(document.querySelector('[onclick*=alertas]'),'alertas')">Ver todas →</span></div>
+        <div class="abanner" id="alert-banner"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span id="alert-txt"></span><span class="alink" onclick="navTo(document.querySelector('[onclick*=alertas]'),'alertas')">Ver todas →</span><button type="button" title="Cerrar este aviso" aria-label="Cerrar este aviso" onclick="cerrarAvisoMora()" style="background:none;border:none;color:inherit;cursor:pointer;font-size:16px;line-height:1;padding:2px 4px;margin-left:2px;flex-shrink:0">✕</button></div>
         <div class="two-col">
           <div class="card">
             <div class="ch"><span class="ct">Pagos y ventas recientes</span><span class="ca" onclick="navTo(document.querySelector('[onclick*=clientes]'),'clientes')">Ver clientes →</span></div>
@@ -793,7 +1045,7 @@ function entrar(user,estado,plan){
   if(plan)CONFIG.plan=plan;
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').classList.add('visible');
-  init();if(plan)setPlanUI(plan);refreshUser();renderAll();revisarPago();
+  init();if(plan)setPlanUI(plan);refreshUser();renderAll();entrarRuta();revisarPago();
 }
 async function sesion(d){TOKEN=d.token;localStorage.setItem('vencio_token',TOKEN);DEMO=false;const st=await api('/state');entrar(d.user,st.estado,st.plan);}
 async function doLogin(){
@@ -809,15 +1061,18 @@ async function doRegister(){
 }
 function doDemo(){DEMO=true;entrar();}
 async function autoLogin(){
-  if(!TOKEN)return;
-  try{const u=await api('/auth/profile'),st=await api('/state');entrar(u,st.estado,st.plan);}catch(e){localStorage.removeItem('vencio_token');TOKEN=null;}
+  if(!TOKEN){SESION_PENDIENTE=false;aplicarRuta();return;}
+  try{const u=await api('/auth/profile'),st=await api('/state');entrar(u,st.estado,st.plan);}
+  catch(e){localStorage.removeItem('vencio_token');TOKEN=null;SESION_PENDIENTE=false;aplicarRuta();}
 }
-function doLogout(){if(confirm('Cerrar sesion?')){localStorage.removeItem('vencio_token');location.reload();}}
-function showRegister(){
+function doLogout(){if(confirm('Cerrar sesion?')){localStorage.removeItem('vencio_token');location.replace(location.pathname);}}
+function showRegister(){irA('registro');}
+function showLogin(){irA('entrar');}
+function vistaRegistro(){
   document.getElementById('login-view').style.display='none';
   document.getElementById('register-view').style.display='block';
 }
-function showLogin(){
+function vistaLogin(){
   document.getElementById('register-view').style.display='none';
   document.getElementById('login-view').style.display='block';
 }
@@ -833,7 +1088,7 @@ function setTheme(t){
   const moonPath='<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
   const sunPath='<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>';
   const svg=`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${isDark?moonPath:sunPath}</svg>`;
-  ['dark-ico','dark-ico-m'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=isDark?moonPath:sunPath;});document.getElementById('btn-light')?.classList.toggle('btn-p',!isDark);document.getElementById('btn-dark')?.classList.toggle('btn-p',isDark);refreshActive();
+  ['dark-ico','dark-ico-m','lp-dark-ico'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=isDark?moonPath:sunPath;});document.getElementById('btn-light')?.classList.toggle('btn-p',!isDark);document.getElementById('btn-dark')?.classList.toggle('btn-p',isDark);refreshActive();
 }
 document.addEventListener('keydown',e=>{if(e.ctrlKey&&e.key==='d'){e.preventDefault();toggleDark();}});
 
@@ -936,9 +1191,18 @@ function renderMetrics(){
 function renderAlertBanner(){
   const v=CLIENTES.filter(c=>c.estado==="vencida");
   const b=document.getElementById("alert-banner");if(!b)return;
-  if(!v.length){b.style.display="none";return;}
+  // Al cerrar el aviso se recuerdan los clientes vencidos de ese momento (CONFIG.avisoMoraCerrado, que se guarda en la cuenta).
+  // El aviso solo reaparece si hay un cliente vencido NUEVO. Los que ya pagaron se quitan de la lista, para que avise si vuelven a vencer.
+  const vivos=new Set(v.map(c=>c.id));
+  const cerrados=(Array.isArray(CONFIG.avisoMoraCerrado)?CONFIG.avisoMoraCerrado:[]).filter(id=>vivos.has(id));
+  if(Array.isArray(CONFIG.avisoMoraCerrado)&&cerrados.length!==CONFIG.avisoMoraCerrado.length)CONFIG.avisoMoraCerrado=cerrados;
+  if(!v.length||v.every(c=>cerrados.includes(c.id))){b.style.display="none";return;}
   b.style.display="flex";
   document.getElementById("alert-txt").innerHTML=`<b>${v.length} cliente${v.length>1?"s":""}</b> con cuotas vencidas. Mayor mora: <b>${Math.max(...v.map(c=>diasMora(c)))} dias</b>.`;
+}
+function cerrarAvisoMora(){
+  CONFIG.avisoMoraCerrado=CLIENTES.filter(c=>c.estado==="vencida").map(c=>c.id);
+  renderAlertBanner();guardar();
 }
 
 // ═══════════════════════════
@@ -1122,7 +1386,7 @@ async function mpCargarEstado(){if(DEMO||!TOKEN)return;try{const e=await api("/m
 async function revisarMP(){
   const p=new URLSearchParams(location.search),q=p.get("mp");if(!q)return;
   const motivo=(p.get("motivo")||"").slice(0,200);
-  history.replaceState(null,"",location.pathname);
+  history.replaceState(null,"",location.pathname+location.hash);
   if(q==="ok"){alert("✓ Tu cuenta de Mercado Pago quedó conectada.");await mpCargarEstado();}
   else alert("No se pudo conectar tu cuenta de Mercado Pago."+(motivo?"\n\nMotivo: "+motivo:"")+"\n\nIntenta de nuevo.");
 }
@@ -1483,6 +1747,10 @@ const TB={
   configuracion:['Configuracion','Ajusta tu cuenta y preferencias'],
 };
 function navTo(el,sec){
+  if(rutaHash()!==sec)history.pushState(null,'',urlCon('#/'+sec));   // guarda la sección en el historial: así "volver" funciona
+  mostrarSeccion(el,sec);
+}
+function mostrarSeccion(el,sec){
   document.querySelectorAll('.ni').forEach(x=>x.classList.remove('active'));if(el)el.classList.add('active');
   document.querySelectorAll('.sec').forEach(x=>x.classList.remove('active'));const s=document.getElementById('s-'+sec);if(s)s.classList.add('active');
   const info=TB[sec]||['',''];
@@ -1502,7 +1770,7 @@ async function selPlan(n){
 }
 async function revisarPago(){
   const q=new URLSearchParams(location.search).get('pago');if(!q||DEMO||!TOKEN)return;
-  history.replaceState(null,'',location.pathname);
+  history.replaceState(null,'',location.pathname+location.hash);
   if(q==='ok'){try{const d=await api('/pagos');if(d.plan)setPlanUI(d.plan);}catch(e){}alert('✓ Pago recibido. Tu plan fue activado.');}
   else if(q==='pendiente')alert('Tu pago está pendiente de confirmación. Se activará apenas se confirme.');
   else alert('El pago no se completó. Puedes intentarlo de nuevo.');
@@ -1516,6 +1784,79 @@ CLIENTES.forEach(c=>{if(OFFS[c.id]!==undefined)c.proximoVenc=dRel(OFFS[c.id]);})
 function refreshUser(){['av-sb','av-top'].forEach(id=>document.getElementById(id).textContent=CONFIG.iniciales);document.getElementById('sb-nombre').textContent=CONFIG.nombre;document.getElementById('cfg-nombre').value=CONFIG.nombre;}
 function refreshActive(){const s=document.querySelector('.sec.active')?.id;if(s==='s-grafico')renderGraficos();if(s==='s-finanzas')renderFinanzas();if(s==='s-calendario')renderCalendario();}
 function copiarLink(b){const t='https://pay.vencio.cl/c/a1b2c3d4';Promise.resolve(navigator.clipboard&&navigator.clipboard.writeText(t)).catch(()=>{}).finally(()=>{b.textContent='¡Copiado!';setTimeout(()=>b.textContent='Copiar link',1500);});}
+// ═══════════════════════════
+// NAVEGACIÓN E HISTORIAL
+// ═══════════════════════════
+// La dirección lleva la vista: sin hash = portada · #/entrar · #/registro · #/<seccion> (ya con sesión).
+// Cada cambio de sección se guarda en el historial del navegador, así el botón "volver" (y el de Android) recorre
+// las secciones por las que pasaste en vez de sacarte de Vencio. Al iniciar sesión se REEMPLAZA la entrada de login
+// (no se agrega), para que "volver" no te lleve otra vez al formulario.
+let APP_LISTA=false,SESION_PENDIENTE=!!TOKEN,ULTIMA_URL='';
+const TITULOS={landing:'Vencio — Gestiona los cobros y vencimientos de tus clientes',login:'Iniciar sesión — Vencio',registro:'Crear cuenta — Vencio',app:'Vencio — Panel'};
+function rutaHash(){let r=(location.hash||'').replace(/^#\/?/,'');try{r=decodeURIComponent(r);}catch(e){}return r.split('?')[0];}
+function urlCon(hash){return location.pathname+location.search+hash;}
+function sidebarItem(sec){return document.querySelector('.ni[onclick*="\''+sec+'\'"]');}
+function setVista(v,titulo){
+  document.documentElement.setAttribute('data-vista',v);
+  document.documentElement.setAttribute('data-sesion',APP_LISTA?'1':'0');
+  document.title=TITULOS[titulo||v]||TITULOS.landing;
+}
+function irA(ruta){
+  if(rutaHash()!==ruta)history.pushState(null,'',urlCon(ruta?'#/'+ruta:''));
+  aplicarRuta();
+}
+function aplicarRuta(){
+  if(SESION_PENDIENTE)return;                       // todavía se está validando la sesión guardada
+  pintarRuta();ULTIMA_URL=location.href;
+}
+function pintarRuta(){
+  const r=rutaHash(),secs=Object.keys(TB);
+  if(r===''&&location.hash)history.replaceState(null,'',urlCon(''));   // el inicio siempre con la dirección limpia (sin '#/' sobrante)
+  if(APP_LISTA){
+    if(secs.includes(r)){setVista('app');mostrarSeccion(sidebarItem(r),r);return;}
+    if(r===''){setVista('landing');window.scrollTo(0,0);return;}   // con sesión también se puede volver a la portada
+    history.replaceState(null,'',urlCon('#/dashboard'));          // #/entrar, #/registro o algo desconocido → al panel
+    setVista('app');mostrarSeccion(sidebarItem('dashboard'),'dashboard');return;
+  }
+  if(r==='entrar'||r==='registro'){
+    setVista('login',r);r==='registro'?vistaRegistro():vistaLogin();window.scrollTo(0,0);return;
+  }
+  if(r!=='')history.replaceState(null,'',urlCon(''));              // una sección privada o un hash raro sin sesión → portada limpia
+  setVista('landing');window.scrollTo(0,0);
+}
+function entrarRuta(){
+  APP_LISTA=true;SESION_PENDIENTE=false;
+  const r=rutaHash(),destino=Object.keys(TB).includes(r)?r:'dashboard';   // al recargar en #/clientes vuelve a clientes
+  history.replaceState(null,'',urlCon('#/'+destino));
+  setVista('app');mostrarSeccion(sidebarItem(destino),destino);ULTIMA_URL=location.href;
+}
+function alCambiarHistorial(){if(location.href!==ULTIMA_URL)aplicarRuta();}   // según el navegador un cambio de # dispara popstate, hashchange o ambos: se aplica una sola vez
+
+// ═══════════════════════════
+// PÁGINA PRINCIPAL
+// ═══════════════════════════
+// Precios (CLP por 30 días) y límites: son los mismos valores de PLANES y LIMITES_PLAN en server.js. Si los cambias allá, cámbialos aquí.
+const PLANES_LP=[
+  {n:'Principal',p:13000,para:'Para comenzar',emp:'1 empresa',cli:'Hasta 50 clientes',mod:'Sin moderadores'},
+  {n:'Plus',p:22000,para:'Para 2 negocios',emp:'2 empresas',cli:'Hasta 200 clientes',mod:'1 moderador'},
+  {n:'Pro',p:36000,para:'Para 3 negocios',emp:'3 empresas',cli:'Hasta 500 clientes',mod:'3 moderadores'},
+  {n:'Omnibus',p:64000,para:'Sin límites',emp:'Empresas ilimitadas',cli:'Clientes ilimitados',mod:'Moderadores ilimitados'}
+];
+function lpRender(){
+  const g=document.getElementById('lp-planes-grid');
+  if(g)g.innerHTML=PLANES_LP.map(p=>`<article class="lp-plan"><h3>${esc(p.n)}</h3><p class="lp-plan-para">${esc(p.para)}</p><p class="lp-precio"><span>$${p.p.toLocaleString('es-CL')}</span>por 30 días</p><ul><li>${esc(p.emp)}</li><li>${esc(p.cli)}</li><li>${esc(p.mod)}</li></ul><a class="lp-btn" href="#/registro">Crear cuenta</a></article>`).join('');
+  const y=document.getElementById('lp-anio');if(y)y.textContent=new Date().getFullYear();
+}
+function lpIr(e,id){   // desplazamiento dentro de la portada (no toca la dirección ni el historial)
+  if(e)e.preventDefault();
+  const el=document.getElementById(id);if(!el)return;
+  const reducir=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(id==='landing'){window.scrollTo({top:0,behavior:reducir?'auto':'smooth'});return;}
+  if(el.scrollIntoView)el.scrollIntoView({behavior:reducir?'auto':'smooth',block:'start'});
+  if(id==='lp-main')el.focus({preventScroll:true});
+}
+window.addEventListener('popstate',alCambiarHistorial);window.addEventListener('hashchange',alCambiarHistorial);
+lpRender();
 autoLogin();mpCargarEstado();revisarMP();
 document.getElementById('f-fecha').value=dRel(30);
 document.getElementById('cfg-email').value='juan.rodriguez@email.com';
