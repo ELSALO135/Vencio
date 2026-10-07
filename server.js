@@ -64,7 +64,12 @@ const auth = (req, res, next) => {
   try { req.userId = jwt.verify((req.headers.authorization || '').split(' ')[1], JWT_SECRET).id; next(); }
   catch { res.status(401).json({ error: 'Sesión inválida' }); }
 };
-const estadoInicial = empresa => ({ empresas: [{ id: 1, nombre: empresa || 'Mi Empresa' }], clientes: [], ventas: [], notifs: [], moderadores: [] });
+// ivaPorc: % de IVA con el que parte la cuenta nueva. Lo elige el usuario en el registro según su país (el
+// IVA varía por país), y queda guardado en su config para que no todas las cuentas partan asumiendo Chile.
+const estadoInicial = (empresa, ivaPorc) => ({
+  empresas: [{ id: 1, nombre: empresa || 'Mi Empresa' }], clientes: [], ventas: [], notifs: [], moderadores: [],
+  config: { ivaPorc: Number.isFinite(ivaPorc) && ivaPorc >= 0 && ivaPorc <= 100 ? ivaPorc : 19 },
+});
 
 // Limitador simple de intentos (sin dependencias): evita adivinar contraseñas por fuerza bruta
 const intentos = new Map();
@@ -104,7 +109,7 @@ const validarEstado = e => {
 
 app.post('/api/auth/register', limitar(10, 3600000), async (req, res) => {
   try {
-    const { email, password, nombre, empresa } = req.body;
+    const { email, password, nombre, empresa, ivaPorc } = req.body;
     if (!email || !password || !nombre) return res.status(400).json({ error: 'Nombre, correo y contraseña son obligatorios' });
     if (password.length < 8) return res.status(400).json({ error: 'La contraseña debe tener al menos 8 caracteres' });
     const mail = email.trim().toLowerCase();
@@ -114,7 +119,8 @@ app.post('/api/auth/register', limitar(10, 3600000), async (req, res) => {
     const u = (await pool.query(
       'INSERT INTO users(email,password,nombre,iniciales) VALUES($1,$2,$3,$4) RETURNING id,email,nombre,iniciales',
       [mail, await bcrypt.hash(password, 10), nombre.trim(), ini])).rows[0];
-    await pool.query('INSERT INTO user_data(user_id,estado) VALUES($1,$2)', [u.id, estadoInicial(empresa && empresa.trim())]);
+    await pool.query('INSERT INTO user_data(user_id,estado) VALUES($1,$2)',
+      [u.id, estadoInicial(empresa && empresa.trim(), Number(ivaPorc))]);
     res.status(201).json({ token: makeToken(u), user: u });
   } catch (e) { fail(res, e, 'No se pudo crear la cuenta'); }
 });
