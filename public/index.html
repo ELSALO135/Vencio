@@ -558,6 +558,7 @@ tr:hover td{background:var(--surface2)}
         <div class="sec-hdr"><div class="sec-hdr-ico" style="background:#FAEEDA"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#854F0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div><div class="sec-hdr-txt"><h2>Integraciones</h2><p>Conecta WooCommerce, Shopify, Mercado Pago y más</p></div></div>
         <div class="int-grid" id="int-grid"></div>
 
+        <div id="mp-propia" style="margin-top:1.75rem"></div>
         <div id="mp-cuenta" style="margin-top:1.75rem"></div>
 
         <div style="margin-top:1.75rem;padding-top:1.5rem;border-top:.5px solid var(--border)">
@@ -1042,23 +1043,30 @@ async function mpDesconectar(){if(!confirm("¿Desconectar tu cuenta de Mercado P
 // ═══════════════════════════
 // MERCADO PAGO: estado de la cuenta en vivo
 // ═══════════════════════════
-let MP_DIAS=30,MP_REQ=0;
+let MP_PROPIETARIO=false;
+const MP_PAN={
+  cuenta:{cont:"mp-cuenta",ruta:"/mp/cuenta",tit:"Tu cuenta de Mercado Pago",sub:"",dias:30,req:0},
+  propia:{cont:"mp-propia",ruta:"/mp/mi-cuenta",tit:"Mi cuenta de Mercado Pago",sub:"La cuenta dueña de Vencio. Solo la ves tú.",dias:30,req:0}
+};
 const MP_ESTADOS={approved:["Aprobado","green"],pending:["Pendiente","amber"],in_process:["En proceso","amber"],authorized:["Autorizado","amber"],rejected:["Rechazado","red"],cancelled:["Cancelado","red"],refunded:["Reembolsado","red"],charged_back:["Contracargo","red"],in_mediation:["En disputa","red"]};
 function mpFmt(n,moneda){return(!moneda||moneda==="CLP")?fmt(n):esc(moneda)+" "+Math.round(n).toLocaleString("es-CL");}
-async function mpCargarCuenta(forzar){
-  const cont=document.getElementById("mp-cuenta");if(!cont)return;
-  if(DEMO||!TOKEN||!MP_CONECTADO){MP_REQ++;cont.innerHTML="";return;}
-  const mio=++MP_REQ;
+async function mpCargarCuenta(forzar,pn){
+  if(!pn){mpCargarCuenta(forzar,"cuenta");if(MP_PROPIETARIO||document.getElementById("mp-propia").innerHTML)mpCargarCuenta(forzar,"propia");return;}
+  const p=MP_PAN[pn],cont=document.getElementById(p.cont);if(!cont)return;
+  const activo=pn==="propia"?MP_PROPIETARIO:MP_CONECTADO;
+  if(DEMO||!TOKEN||!activo){p.req++;cont.innerHTML="";return;}
+  const mio=++p.req;
   if(!cont.innerHTML)cont.innerHTML=`<p style="font-size:12.5px;color:var(--text3)">Consultando tu cuenta de Mercado Pago…</p>`;
-  try{const d=await api("/mp/cuenta?dias="+MP_DIAS+(forzar?"&forzar=1":""));if(mio===MP_REQ)renderMpCuenta(d);}
-  catch(e){if(mio===MP_REQ)cont.innerHTML=`<div class="card" style="padding:1rem 1.25rem;font-size:12.5px;color:var(--red)">No se pudo leer tu cuenta de Mercado Pago: ${esc(e.message)} <button class="btn-sm" style="margin-left:8px" onclick="mpCargarCuenta(true)">Reintentar</button></div>`;}
+  try{const d=await api(p.ruta+"?dias="+p.dias+(forzar?"&forzar=1":""));if(mio===p.req)renderMpCuenta(d,pn);}
+  catch(e){if(mio===p.req)cont.innerHTML=`<div class="card" style="padding:1rem 1.25rem;font-size:12.5px;color:var(--red)">No se pudo leer ${pn==="propia"?"tu cuenta":"tu cuenta"} de Mercado Pago: ${esc(e.message)} <button class="btn-sm" style="margin-left:8px" onclick="mpCargarCuenta(true,'${pn}')">Reintentar</button></div>`;}
 }
-function renderMpCuenta(d){
+function renderMpCuenta(d,pn){
+  pn=pn||"cuenta";const P=MP_PAN[pn];
   const c=d.cuenta,r=d.resumen,s=d.saldo,m=d.moneda;
   const met=(lbl,val,sub)=>`<div class="metric"><div class="m-lbl">${lbl}</div><div class="m-val" style="font-size:21px">${val}</div><div class="m-sub" style="color:var(--text3)">${sub||"&nbsp;"}</div></div>`;
   let tipo="";
   if(c){const emp=c.tipo==="empresa";tipo=`<span style="font-size:11.5px;padding:2px 9px;border-radius:99px;font-weight:500;background:${emp?"var(--green-l)":"var(--amber-l)"};color:${emp?"var(--green)":"var(--amber)"}" title="${emp?(c.tipoFuente==="mercadopago"?"Informado por Mercado Pago":"Deducido del RUT (persona jurídica)"):"Mercado Pago no informa el tipo de cuenta"}">${emp?"Cuenta empresa":"Tipo de cuenta no confirmado"}</span>`;}
-  let h=`<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px"><div><h3 style="font-size:14px;font-weight:600;margin-bottom:3px">Tu cuenta de Mercado Pago</h3><div style="font-size:12.5px;color:var(--text2);display:flex;align-items:center;gap:8px;flex-wrap:wrap">${c&&c.nombre?esc(c.nombre):"Cuenta conectada"} ${tipo}</div></div><div style="display:flex;align-items:center;gap:8px"><select class="btn-sm" onchange="MP_DIAS=+this.value;mpCargarCuenta(false)">${[7,30,90].map(n=>`<option value="${n}"${n===d.dias?" selected":""}>Últimos ${n} días</option>`).join("")}</select><button class="btn-sm" onclick="mpCargarCuenta(true)">↻ Actualizar</button></div></div>`;
+  let h=`<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px"><div><h3 style="font-size:14px;font-weight:600;margin-bottom:3px">${esc(P.tit)}</h3>${P.sub?`<div style="font-size:11.5px;color:var(--text3);margin-bottom:3px">${esc(P.sub)}</div>`:""}<div style="font-size:12.5px;color:var(--text2);display:flex;align-items:center;gap:8px;flex-wrap:wrap">${c&&c.nombre?esc(c.nombre):"Cuenta conectada"} ${tipo}</div></div><div style="display:flex;align-items:center;gap:8px"><select class="btn-sm" onchange="MP_PAN.${pn}.dias=+this.value;mpCargarCuenta(false,'${pn}')">${[7,30,90].map(n=>`<option value="${n}"${n===d.dias?" selected":""}>Últimos ${n} días</option>`).join("")}</select><button class="btn-sm" onclick="mpCargarCuenta(true,'${pn}')">↻ Actualizar</button></div></div>`;
   if(r||s){
     h+=`<div class="metrics" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr))">`;
     if(s)h+=met("Saldo en la cuenta",mpFmt(s.total,m),`Disponible ${mpFmt(s.disponible,m)} · No disponible ${mpFmt(s.noDisponible,m)}`);
@@ -1081,10 +1089,10 @@ function renderMpCuenta(d){
   (d.avisos||[]).forEach(a=>{h+=`<p style="font-size:11.5px;color:var(--text3);margin-bottom:4px">ℹ️ ${esc(a)}</p>`;});
   if(r&&r.truncado)h+=`<p style="font-size:11.5px;color:var(--text3);margin-bottom:4px">ℹ️ Hay más de 500 pagos en el período: los totales consideran solo los 500 más recientes.</p>`;
   h+=`<p style="font-size:11px;color:var(--text3)">Actualizado a las ${esc(new Date(d.actualizado).toLocaleTimeString("es-CL",{hour:"2-digit",minute:"2-digit"}))}. Se actualiza al abrir esta sección y con el botón Actualizar.</p>`;
-  document.getElementById("mp-cuenta").innerHTML=h;
+  document.getElementById(P.cont).innerHTML=h;
 }
 
-async function mpCargarEstado(){if(DEMO||!TOKEN)return;try{MP_CONECTADO=(await api("/mp/estado")).conectado;renderIntegraciones();mpCargarCuenta();}catch(e){}}
+async function mpCargarEstado(){if(DEMO||!TOKEN)return;try{const e=await api("/mp/estado");MP_CONECTADO=e.conectado;MP_PROPIETARIO=!!e.propietario;renderIntegraciones();mpCargarCuenta();}catch(e){}}
 async function revisarMP(){
   const p=new URLSearchParams(location.search),q=p.get("mp");if(!q)return;
   const motivo=(p.get("motivo")||"").slice(0,200);
