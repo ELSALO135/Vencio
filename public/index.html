@@ -612,6 +612,28 @@ html[data-sesion="1"] .lp-solo-visita{display:none!important}
       <div class="fg"><label class="fl">Correo electrónico</label><input class="fi" type="email" placeholder="tu@email.com"></div>
       <div class="fg"><label class="fl">Contraseña</label><input class="fi" type="password" placeholder="Mínimo 8 caracteres"></div>
       <div class="fg"><label class="fl">Nombre de tu empresa</label><input class="fi" type="text" placeholder="Mi Empresa SpA"></div>
+      <div class="fg"><label class="fl">País</label>
+        <select class="fi" id="r-pais" onchange="rPaisCambio()">
+          <option value="CL" data-iva="19">Chile</option>
+          <option value="MX" data-iva="16">México</option>
+          <option value="AR" data-iva="21">Argentina</option>
+          <option value="CO" data-iva="19">Colombia</option>
+          <option value="PE" data-iva="18">Perú</option>
+          <option value="UY" data-iva="22">Uruguay</option>
+          <option value="EC" data-iva="15">Ecuador</option>
+          <option value="BO" data-iva="13">Bolivia</option>
+          <option value="PY" data-iva="10">Paraguay</option>
+          <option value="VE" data-iva="16">Venezuela</option>
+          <option value="CR" data-iva="13">Costa Rica</option>
+          <option value="PA" data-iva="7">Panamá</option>
+          <option value="ES" data-iva="21">España</option>
+          <option value="GB" data-iva="20">Reino Unido</option>
+          <option value="SA" data-iva="15">Arabia Saudita</option>
+          <option value="otro" data-iva="">Otro país</option>
+        </select>
+        <input class="fi" id="r-iva-otro" type="number" min="0" max="100" placeholder="% IVA de tu país" style="display:none;margin-top:8px">
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">Usamos esto para dejar tu % de IVA correcto desde el principio. Lo puedes cambiar después en Ajustes.</div>
+      </div>
       <p style="font-size:11.5px;color:var(--text3);line-height:1.5;margin:-2px 0 14px">Al crear la cuenta te llevamos a Mercado&nbsp;Pago para activar tus 14 días gratis del plan Principal. Te pedirá autorizar una tarjeta, pero no se cobra nada hasta el día 14, y puedes cancelar cuando quieras desde Planes.</p>
       <button class="btn-login" onclick="doRegister()">Crear cuenta gratis</button>
       <div class="login-footer" style="margin-top:1rem">¿Ya tienes cuenta? <a onclick="showLogin()">Inicia sesión</a></div>
@@ -1055,12 +1077,37 @@ async function doLogin(){
   if(!email||!password)return alert('Ingresa tu correo y contraseña.');
   try{await sesion(await api('/auth/login','POST',{email,password}));}catch(e){alert(e.message);}
 }
+// País → % de IVA, para que la cuenta nueva parta con el % correcto en vez de asumir siempre Chile (19%).
+// El usuario puede cambiarlo cuando quiera desde Ajustes.
+function rPaisCambio(){
+  const sel=document.getElementById('r-pais'),otro=document.getElementById('r-iva-otro');
+  otro.style.display=sel.value==='otro'?'':'none';
+}
+const TZ_PAIS={ // mapea algunas zonas horarias comunes a un país, solo para PRESELECCIONAR el select (el usuario lo puede cambiar)
+  'America/Santiago':'CL','America/Mexico_City':'MX','America/Tijuana':'MX','America/Cancun':'MX',
+  'America/Argentina/Buenos_Aires':'AR','America/Argentina/Cordoba':'AR','America/Bogota':'CO','America/Lima':'PE',
+  'America/Montevideo':'UY','America/Guayaquil':'EC','America/La_Paz':'BO','America/Asuncion':'PY',
+  'America/Caracas':'VE','America/Costa_Rica':'CR','America/Panama':'PA','Europe/Madrid':'ES',
+  'Europe/London':'GB','Asia/Riyadh':'SA',
+};
+function rPaisDetectar(){
+  try{
+    const tz=Intl.DateTimeFormat().resolvedOptions().timeZone,cod=TZ_PAIS[tz],sel=document.getElementById('r-pais');
+    if(cod&&sel)sel.value=cod;
+  }catch(e){}
+}
+function rIvaElegido(){
+  const sel=document.getElementById('r-pais');if(!sel)return 19;
+  if(sel.value==='otro'){const n=parseInt(document.getElementById('r-iva-otro').value);return Number.isFinite(n)?n:0;}
+  const n=parseInt(sel.selectedOptions[0].dataset.iva);return Number.isFinite(n)?n:19;
+}
 async function doRegister(){
   const [n,a,email,password,empresa]=[...document.getElementById('register-view').querySelectorAll('input')].map(x=>x.value.trim());
   if(!n||!email||!password||!empresa)return alert('Completa nombre, correo, contraseña y empresa.');
   if(password.length<8)return alert('La contraseña debe tener al menos 8 caracteres.');
+  const ivaPorc=rIvaElegido();
   try{
-    await sesion(await api('/auth/register','POST',{nombre:(n+' '+a).trim(),email,password,empresa}));
+    await sesion(await api('/auth/register','POST',{nombre:(n+' '+a).trim(),email,password,empresa,ivaPorc}));
     await activarPrueba();
   }catch(e){alert(e.message);}
 }
@@ -1897,7 +1944,7 @@ function lpIr(e,id){   // desplazamiento dentro de la portada (no toca la direcc
 }
 window.addEventListener('popstate',alCambiarHistorial);window.addEventListener('hashchange',alCambiarHistorial);
 lpRender();
-autoLogin();mpCargarEstado();revisarMP();revisarPrueba();
+autoLogin();mpCargarEstado();revisarMP();revisarPrueba();rPaisDetectar();
 document.getElementById('f-fecha').value=dRel(30);
 document.getElementById('cfg-email').value='juan.rodriguez@email.com';
 setTheme('light');
