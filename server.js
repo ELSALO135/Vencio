@@ -680,40 +680,70 @@ const resumirPagosMP = (pagos, dias) => {
     moneda: (pagos[0] && pagos[0].currency_id) || 'CLP' };
 };
 
-app.get('/api/mp/cuenta', auth, async (req, res) => {
+// Arma el resumen financiero de una cuenta de Mercado Pago a partir de su token. Lo usan /api/mp/cuenta (cuenta que conectó un
+// usuario por OAuth) y /api/mp/mi-cuenta (la cuenta dueña de Vencio, con MP_ACCESS_TOKEN).
+const consultarCuentaMP = async (token, mpIdPrevio, dias) => {
+  const avisos = [];
+  let mpId = mpIdPrevio || null, cuenta = null;
   try {
-    const pedidos = parseInt(req.query.dias, 10), dias = [7, 30, 90].includes(pedidos) ? pedidos : 30;
-    const clave = `${req.userId}:${dias}`, previo = mpCuentaCache.get(clave);
-    if (!req.query.forzar && previo && Date.now() - previo.t < 30000) return res.json(previo.data);
-    const token = await mpTokenDeUsuario(req.userId);
-    if (!token) return res.status(404).json({ error: 'Tu cuenta de Mercado Pago no está conectada (o venció). Vuelve a conectarla.' });
-    const avisos = [];
-    let mpId = (await pool.query('SELECT mp_user_id FROM mp_cuentas WHERE user_id=$1', [req.userId])).rows[0]?.mp_user_id || null;
-    let cuenta = null;
-    try {
-      const u = await mpCall('GET', '/users/me', token);
-      if (!mpId && u.id) mpId = String(u.id);
-      // "campos" = solo los NOMBRES de los datos que devolvió Mercado Pago (sin valores), por si hay que ajustar el tipo de cuenta
-      cuenta = { nombre: nombreCuentaMP(u), ...tipoCuentaMP(u), sitio: u.site_id || null, campos: Object.keys(u) };
-    } catch (e) { avisos.push('No se pudieron leer los datos de la cuenta: ' + e.message); }
-    const sinId = () => Promise.reject(new Error('no se conoce el ID de la cuenta'));
-    const [rSaldo, rPagos] = await Promise.allSettled([mpId ? saldoMP(token, mpId) : sinId(), mpId ? traerPagosMP(token, mpId, dias) : sinId()]);
-    let saldo = null, resumen = null, serie = [], movimientos = [], moneda = 'CLP';
-    if (rSaldo.status === 'fulfilled') saldo = rSaldo.value;
-    else avisos.push(`El saldo exacto no está disponible por API en esta conexión (Mercado Pago respondió: ${rSaldo.reason.message}). Se muestra el dinero por liberar, calculado desde tus pagos.`);
-    if (rPagos.status === 'fulfilled') {
-      ({ resumen, serie, movimientos, moneda } = resumirPagosMP(rPagos.value.pagos, dias));
-      resumen.truncado = rPagos.value.truncado;
-    } else avisos.push('No se pudieron leer tus pagos: ' + rPagos.reason.message);
-    if (!cuenta && !saldo && !resumen) return res.status(502).json({ error: avisos[0] || 'Mercado Pago no respondió' });
-    const data = { actualizado: new Date().toISOString(), dias, moneda, cuenta, saldo, resumen, serie, movimientos, avisos };
+    const u = await mpCall('GET', '/users/me', token);
+    if (!mpId && u.id) mpId = String(u.id);
+    // "campos" = solo los NOMBRES de los datos que devolvió Mercado Pago (sin valores), por si hay que ajustar el tipo de cuenta
+    cuenta = { nombre: nombreCuentaMP(u), ...tipoCuentaMP(u), sitio: u.site_id || null, campos: Object.keys(u) };
+  } catch (e) { avisos.push('No se pudieron leer los datos de la cuenta: ' + e.message); }
+  const sinId = () => Promise.reject(new Error('no se conoce el ID de la cuenta'));
+  const [rSaldo, rPagos] = await Promise.allSettled([mpId ? saldoMP(token, mpId) : sinId(), mpId ? traerPagosMP(token, mpId, dias) : sinId()]);
+  let saldo = null, resumen = null, serie = [], movimientos = [], moneda = 'CLP';
+  if (rSaldo.status === 'fulfilled') saldo = rSaldo.value;
+  else avisos.push(`El saldo exacto no está disponible por API en esta conexión (Mercado Pago respondió: ${rSaldo.reason.message}). Se muestra el dinero por liberar, calculado desde tus pagos.`);
+  if (rPagos.status === 'fulfilled') {
+    ({ resumen, serie, movimientos, moneda } = resumirPagosMP(rPagos.value.pagos, dias));
+    resumen.truncado = rPagos.value.truncado;
+  } else avisos.push('No se pudieron leer tus pagos: ' + rPagos.reason.message);
+  if (!cuenta && !saldo && !resumen) { const e = new Error(avisos[0] || 'Mercado Pago no respondió'); e.http = 502; throw e; }
+  return { actualizado: new Date().toISOString(), dias, moneda, cuenta, saldo, resumen, serie, movimientos, avisos };
+};
+const diasValidos = q => { const n = parseInt(q, 10); return [7, 30, 90].includes(n) ? n : 30; };
+const responderCuentaMP = async (res, clave, forzar, obtener) => {
+  try {
+    const previo = mpCuentaCache.get(clave);
+    if (!forzar && previo && Date.now() - previo.t < 30000) return res.json(previo.data);
+    const data = await obtener();
+    if (!data) return;
     mpCuentaCache.set(clave, { t: Date.now(), data });
     res.json(data);
-  } catch (e) { fail(res, e, 'Error al consultar tu cuenta de Mercado Pago'); }
+  } catch (e) {
+    if (e.http === 502) return res.status(502).json({ error: e.message });
+    fail(res, e, 'Error al consultar Mercado Pago');
+  }
+};
+
+app.get('/api/mp/cuenta', auth, async (req, res) => {
+  const dias = diasValidos(req.query.dias);
+  await responderCuentaMP(res, `${req.userId}:${dias}`, req.query.forzar, async () => {
+    const token = await mpTokenDeUsuario(req.userId);
+    if (!token) { res.status(404).json({ error: 'Tu cuenta de Mercado Pago no está conectada (o venció). Vuelve a conectarla.' }); return null; }
+    const fila = (await pool.query('SELECT mp_user_id FROM mp_cuentas WHERE user_id=$1', [req.userId])).rows[0];
+    return consultarCuentaMP(token, fila && fila.mp_user_id, dias);
+  });
+});
+
+// ── Tu PROPIA cuenta de Mercado Pago (la dueña de la app de Vencio) ──
+// Mercado Pago no deja que una cuenta se autorice a sí misma por OAuth, pero para tu cuenta no hace falta: ya tienes su token
+// (MP_ACCESS_TOKEN). Solo la ve el usuario cuyo correo está en la variable ADMIN_EMAIL; para todos los demás responde 403.
+const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || '').trim().toLowerCase();
+const esPropietario = async userId =>
+  !!ADMIN_EMAIL && (await pool.query('SELECT 1 FROM users WHERE id=$1 AND LOWER(email)=$2', [userId, ADMIN_EMAIL])).rowCount > 0;
+
+app.get('/api/mp/mi-cuenta', auth, async (req, res) => {
+  if (!(await esPropietario(req.userId).catch(() => false))) return res.status(403).json({ error: 'No tienes acceso a esta sección' });
+  if (!MP_ACCESS_TOKEN) return res.status(503).json({ error: 'Falta MP_ACCESS_TOKEN en el servidor' });
+  const dias = diasValidos(req.query.dias);
+  await responderCuentaMP(res, `propia:${dias}`, req.query.forzar, () => consultarCuentaMP(MP_ACCESS_TOKEN, null, dias));
 });
 
 app.get('/api/mp/estado', auth, async (req, res) => {
-  try { res.json({ conectado: !!(await pool.query('SELECT 1 FROM mp_cuentas WHERE user_id=$1', [req.userId])).rowCount }); }
+  try { res.json({ conectado: !!(await pool.query('SELECT 1 FROM mp_cuentas WHERE user_id=$1', [req.userId])).rowCount, propietario: await esPropietario(req.userId) }); }
   catch (e) { fail(res, e, 'Error al consultar Mercado Pago'); }
 });
 
@@ -855,5 +885,7 @@ app.post('/api/mp/clientes/:clienteId/cancelar-suscripcion', auth, async (req, r
       id SERIAL PRIMARY KEY, user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       cliente_id INT NOT NULL, preapproval_id VARCHAR(100) NOT NULL, monto INT NOT NULL,
       activo BOOLEAN NOT NULL DEFAULT FALSE, created_at TIMESTAMP DEFAULT NOW(), UNIQUE(user_id, cliente_id));`);
+  if (ADMIN_EMAIL && !(await pool.query('SELECT 1 FROM users WHERE LOWER(email)=$1', [ADMIN_EMAIL])).rowCount)
+    console.warn('⚠ ADMIN_EMAIL no coincide con ningún usuario registrado: revisa que sea EXACTAMENTE el correo con el que entras a Vencio.');
   app.listen(PORT, () => console.log(`✓ Vencio corriendo en http://localhost:${PORT}`));
 })().catch(e => { console.error('No se pudo conectar a PostgreSQL:', e.message); process.exit(1); });
