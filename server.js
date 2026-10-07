@@ -125,6 +125,72 @@ app.post('/api/auth/register', limitar(10, 3600000), async (req, res) => {
   } catch (e) { fail(res, e, 'No se pudo crear la cuenta'); }
 });
 
+// ── Entrar / registrarse con Google ("Continuar con Google") ──
+// El navegador recibe de Google un "ID token" firmado. Aquí se comprueba (1) la firma, con las claves públicas de
+// Google, (2) que el token sea para ESTA app (GOOGLE_CLIENT_ID), (3) que no esté vencido y (4) que Google tenga
+// verificado el correo. Así nadie puede crear una cuenta con un correo que no es suyo. No requiere librerías extra.
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+if (!GOOGLE_CLIENT_ID) console.warn('Aviso: falta GOOGLE_CLIENT_ID, el botón "Continuar con Google" no aparecerá.');
+let googleClaves = { keys: [], cargado: 0 };
+const leerClavesGoogle = async () => {
+  const r = await fetch('https://www.googleapis.com/oauth2/v3/certs', { signal: AbortSignal.timeout(5000) });
+  if (!r.ok) throw new Error('No se pudieron leer las claves de Google');
+  googleClaves = { keys: (await r.json()).keys || [], cargado: Date.now() };
+};
+const claveGoogle = async kid => {
+  const buscar = () => googleClaves.keys.find(k => k.kid === kid);
+  if (!googleClaves.keys.length || Date.now() - googleClaves.cargado > 3600000) await leerClavesGoogle();
+  // Google rota sus claves: si llega un "kid" desconocido se relee, pero como máximo cada 15 s (para que nadie
+  // pueda usar tokens inventados para hacer que el servidor consulte a Google sin parar).
+  if (!buscar() && Date.now() - googleClaves.cargado > 15000) await leerClavesGoogle();
+  const jwk = buscar();
+  if (!jwk) throw new Error('Clave de Google desconocida');
+  return crypto.createPublicKey({ key: jwk, format: 'jwk' }).export({ type: 'spki', format: 'pem' });
+};
+const verificarTokenGoogle = async idToken => {
+  const dec = jwt.decode(idToken, { complete: true });
+  if (!dec || !dec.header || dec.header.alg !== 'RS256' || !dec.header.kid) throw new Error('Token con formato inválido');
+  return jwt.verify(idToken, await claveGoogle(dec.header.kid), {
+    algorithms: ['RS256'], audience: GOOGLE_CLIENT_ID, issuer: ['https://accounts.google.com', 'accounts.google.com'], clockTolerance: 10 });
+};
+
+// Datos públicos que necesita el navegador (el ID de cliente de Google no es secreto).
+app.get('/api/config', (req, res) => res.json({ googleClientId: GOOGLE_CLIENT_ID || null }));
+
+app.post('/api/auth/google', limitar(60, 3600000), async (req, res) => {
+  try {
+    if (!GOOGLE_CLIENT_ID) return res.status(503).json({ error: 'El acceso con Google aún no está configurado' });
+    const { credential, empresa, ivaPorc } = req.body;
+    if (typeof credential !== 'string' || !credential) return res.status(400).json({ error: 'Falta la credencial de Google' });
+    let p;
+    try { p = await verificarTokenGoogle(credential); }
+    catch (e) { console.error('Token de Google rechazado:', e.message); return res.status(401).json({ error: 'No se pudo verificar tu cuenta de Google. Intenta de nuevo.' }); }
+    if (!p.email || (p.email_verified !== true && p.email_verified !== 'true'))
+      return res.status(401).json({ error: 'Google no tiene verificado ese correo' });
+    const mail = String(p.email).trim().toLowerCase(), sub = String(p.sub);
+    let u = (await pool.query(
+      'SELECT id,email,nombre,iniciales,google_sub FROM users WHERE google_sub=$1 OR email=$2 ORDER BY (google_sub=$1) DESC LIMIT 1',
+      [sub, mail])).rows[0];
+    let nuevo = false;
+    if (u) {
+      // Cuenta que ya existía (por correo y contraseña, o por Google): se vincula a esta cuenta de Google.
+      if (u.google_sub && u.google_sub !== sub) return res.status(403).json({ error: 'Ese correo ya está vinculado a otra cuenta de Google' });
+      if (!u.google_sub) await pool.query('UPDATE users SET google_sub=$1 WHERE id=$2', [sub, u.id]);
+    } else {
+      const nombre = String(p.name || mail.split('@')[0]).trim().slice(0, 255);
+      const ini = nombre.split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
+      // Sin contraseña propia: se guarda una al azar que nadie conoce, así no se puede entrar por la vía de contraseña.
+      u = (await pool.query(
+        'INSERT INTO users(email,password,nombre,iniciales,google_sub) VALUES($1,$2,$3,$4,$5) RETURNING id,email,nombre,iniciales',
+        [mail, await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10), nombre, ini, sub])).rows[0];
+      await pool.query('INSERT INTO user_data(user_id,estado) VALUES($1,$2)',
+        [u.id, estadoInicial(typeof empresa === 'string' ? empresa.trim().slice(0, 100) : '', Number(ivaPorc))]);
+      nuevo = true;
+    }
+    res.status(nuevo ? 201 : 200).json({ token: makeToken(u), user: { id: u.id, email: u.email, nombre: u.nombre, iniciales: u.iniciales }, nuevo });
+  } catch (e) { fail(res, e, 'No se pudo entrar con Google'); }
+});
+
 app.post('/api/auth/login', limitar(10, 900000), async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -935,6 +1001,8 @@ app.post('/api/mp/clientes/:clienteId/cancelar-suscripcion', auth, async (req, r
       estado JSONB NOT NULL DEFAULT '{}', updated_at TIMESTAMP DEFAULT NOW());
     ALTER TABLE users ADD COLUMN IF NOT EXISTS plan_vence TIMESTAMP;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS trial_usado BOOLEAN NOT NULL DEFAULT FALSE;
+    -- Identificador estable de la cuenta de Google vinculada (el "sub" del token). Único por usuario.
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS google_sub VARCHAR(50) UNIQUE;
     -- Suscripción (preapproval) de Mercado Pago que arma la prueba gratis de 14 días. Una por usuario.
     CREATE TABLE IF NOT EXISTS vencio_suscripciones(
       user_id INT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, preapproval_id VARCHAR(100) NOT NULL,
