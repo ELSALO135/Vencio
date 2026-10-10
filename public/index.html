@@ -694,6 +694,7 @@ html[data-sesion="1"] .lp-solo-visita{display:none!important}
       <div class="ni active" onclick="navTo(this,'dashboard')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> Dashboard</div>
       <div class="ni" onclick="navTo(this,'grafico')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> Gráficos</div>
       <div class="ni" onclick="navTo(this,'finanzas')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg> Finanzas</div>
+      <div class="ni" onclick="navTo(this,'gastos')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v14"/><path d="M6 11l6 6 6-6"/><path d="M4 21h16"/></svg> Gastos</div>
       <div class="ni" onclick="navTo(this,'calendario')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Calendario</div>
       <div class="ni" onclick="navTo(this,'clientes')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Clientes</div>
       <div class="ni" onclick="navTo(this,'alertas')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> Alertas <span class="nb" id="nb-alertas" style="display:none">0</span></div>
@@ -772,6 +773,18 @@ html[data-sesion="1"] .lp-solo-visita{display:none!important}
         <div class="sec-hdr"><div class="sec-hdr-ico" style="background:#EAF3DE"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3B6D11" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg></div><div class="sec-hdr-txt"><h2>Finanzas por empresa</h2><p>Ingresos, costos y ganancia neta de cada negocio</p></div></div>
         <div class="metrics" id="fin-consolidado"></div>
         <div id="fin-empresas"></div>
+      </div>
+
+      <!-- GASTOS -->
+      <div class="sec" id="s-gastos">
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:1.5rem;flex-wrap:wrap">
+          <div class="sec-hdr-ico" style="background:#FCEBEB"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#A32D2D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v14"/><path d="M6 11l6 6 6-6"/><path d="M4 21h16"/></svg></div>
+          <div style="flex:1;min-width:180px"><div style="font-size:18px;font-weight:500">Gastos</div><div style="font-size:13px;color:var(--text3)">Anota lo que se gasta y mira cuánto va por día, semana y mes</div></div>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><select class="fi" id="gas-filtro" onchange="renderGastos()" style="width:auto"></select><button class="btn btn-p" onclick="abrirModalGasto()">+ Agregar gasto</button></div>
+        </div>
+        <div class="metrics" id="gas-metricas"></div>
+        <div class="card card-pad" style="margin-top:1rem"><div style="font-size:14px;font-weight:500;margin-bottom:10px">En qué se gasta (este mes)</div><div id="gas-cats"></div></div>
+        <div class="card card-pad" style="margin-top:1rem"><div style="font-size:14px;font-weight:500;margin-bottom:10px">Últimos gastos</div><div id="gas-lista"></div></div>
       </div>
 
       <!-- CALENDARIO -->
@@ -1003,6 +1016,16 @@ html[data-sesion="1"] .lp-solo-visita{display:none!important}
   </div>
 </div>
 
+<div class="overlay" id="modal-gasto">
+  <div class="modal" style="width:420px">
+    <div class="modal-t">Agregar gasto <span class="modal-x" onclick="cerrar('modal-gasto')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span></div>
+    <div class="frow"><div class="fg"><label class="fl">Monto (CLP)</label><input class="fi" id="g-monto" type="number" min="1" placeholder="25000"></div><div class="fg"><label class="fl">Fecha</label><input class="fi" id="g-fecha" type="date"></div></div>
+    <div class="frow"><div class="fg"><label class="fl">Empresa</label><select class="fi" id="g-empresa"></select></div><div class="fg"><label class="fl">Categoría</label><select class="fi" id="g-cat"></select></div></div>
+    <div class="fg"><label class="fl">Detalle (opcional)</label><input class="fi" id="g-nota" type="text" maxlength="120" placeholder="Ej: Verduras del proveedor"></div>
+    <div class="ma"><button class="btn" onclick="cerrar('modal-gasto')">Cancelar</button><button class="btn btn-p" onclick="agregarGasto()">Guardar gasto</button></div>
+  </div>
+</div>
+
 <div class="overlay" id="modal-link">
   <div class="modal" style="width:360px">
     <div class="modal-t">Enviar link de cobro <span class="modal-x" onclick="cerrar('modal-link')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span></div>
@@ -1046,6 +1069,7 @@ const CLIENTES=[
   {id:7,nombre:"Marco Fuentes",rut:"10.111.222-5",email:"marco@corp.cl",telefono:"+56 9 2789 0123",empresa:3,montoCuota:300000,cuotasPagadas:6,cuotasTotal:8,proximoVenc:"2026-06-05",estado:"al día",tipoVenta:"producto",tipo:"cuotas",metodoPago:"tarjeta",historial:[{fecha:"2026-01-05",monto:300000,metodo:"tarjeta"},{fecha:"2026-02-05",monto:300000,metodo:"tarjeta"},{fecha:"2026-03-05",monto:300000,metodo:"tarjeta"}],notas:[]},
   {id:8,nombre:"Paula Castillo",rut:"17.890.123-6",email:"paula@gmail.com",telefono:"+56 9 1890 1234",empresa:4,montoCuota:150000,cuotasPagadas:3,cuotasTotal:6,proximoVenc:"2026-06-08",estado:"pendiente",tipoVenta:"servicio",tipo:"membresia",metodoPago:"efectivo",historial:[{fecha:"2026-03-31",monto:150000,metodo:"efectivo"},{fecha:"2026-04-30",monto:150000,metodo:"efectivo"}],notas:[]},
 ];
+const GASTOS=[];
 const VENTAS=[
   {id:1,empresa:1,cliente:"Ana Torres",concepto:"Cuota mensual",tipo:"cuota",monto:320000,costo:180000,fecha:"2026-04-30",metodoPago:"transferencia"},
   {id:2,empresa:1,cliente:"Diego Vega",concepto:"Suscripcion premium",tipo:"membresia",monto:540000,costo:210000,fecha:"2026-05-10",metodoPago:"tarjeta"},
@@ -1095,13 +1119,13 @@ async function api(path,method='GET',body){
 }
 function guardar(){
   if(DEMO||!TOKEN)return;clearTimeout(saveT);
-  saveT=setTimeout(()=>api('/state','PUT',{empresas:EMPRESAS,clientes:CLIENTES,ventas:VENTAS,notifs:NOTIFS,moderadores:MODERADORES,config:CONFIG}).catch(e=>{console.error('No se pudo guardar:',e);alert('No se pudo guardar: '+e.message);}),400);
+  saveT=setTimeout(()=>api('/state','PUT',{empresas:EMPRESAS,clientes:CLIENTES,ventas:VENTAS,gastos:GASTOS,notifs:NOTIFS,moderadores:MODERADORES,config:CONFIG}).catch(e=>{console.error('No se pudo guardar:',e);alert('No se pudo guardar: '+e.message);}),400);
 }
 function entrar(user,estado,plan){
   if(user){CONFIG.nombre=user.nombre;CONFIG.iniciales=user.iniciales||CONFIG.iniciales;if(user.email)document.getElementById('cfg-email').value=user.email;}
   if(estado){
     const r=(a,n)=>{a.length=0;a.push(...(n||[]));};
-    r(EMPRESAS,estado.empresas);r(CLIENTES,estado.clientes);r(VENTAS,estado.ventas);r(NOTIFS,estado.notifs);r(MODERADORES,estado.moderadores);
+    r(EMPRESAS,estado.empresas);r(CLIENTES,estado.clientes);r(VENTAS,estado.ventas);r(GASTOS,estado.gastos);r(NOTIFS,estado.notifs);r(MODERADORES,estado.moderadores);
     if(estado.config)Object.assign(CONFIG,estado.config);
   }
   if(plan)CONFIG.plan=plan;
@@ -1282,7 +1306,7 @@ function renderAll(){guardar();
   renderTabs();renderMetrics();renderAlertBanner();
   renderDashTable();renderActivity();renderClientes();
   renderAlertas();renderRecordatorios();renderPagos();
-  renderIntegraciones();renderMods();refreshActive();
+  renderIntegraciones();renderMods();renderGastos();refreshActive();
 }
 
 // ═══════════════════════════
@@ -1705,6 +1729,56 @@ function renderFinanzas(){
 }
 
 // ═══════════════════════════
+// GASTOS
+// ═══════════════════════════
+const GASTO_CATS=["Insumos","Sueldos","Arriendo","Servicios básicos","Marketing","Impuestos","Transporte","Otros"];
+const GASTO_COLOR={"Insumos":"#185FA5","Sueldos":"#5A1E91","Arriendo":"#854F0B","Servicios básicos":"#0F6E56","Marketing":"#A32D2D","Impuestos":"#5A5750","Transporte":"#3B6D11","Otros":"#888780"};
+function gHoy(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+function gLunes(){const d=new Date();const w=(d.getDay()+6)%7;d.setDate(d.getDate()-w);return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+function abrirModalGasto(){
+  document.getElementById("g-empresa").innerHTML=EMPRESAS.map(e=>`<option value="${e.id}">${esc(e.nombre)}</option>`).join("");
+  document.getElementById("g-cat").innerHTML=GASTO_CATS.map(c=>`<option>${esc(c)}</option>`).join("");
+  document.getElementById("g-monto").value="";document.getElementById("g-nota").value="";document.getElementById("g-fecha").value=gHoy();
+  const f=document.getElementById("gas-filtro");if(f&&f.value&&f.value!=="todas")document.getElementById("g-empresa").value=f.value;
+  document.getElementById("modal-gasto").classList.add("open");
+}
+function agregarGasto(){
+  const monto=Math.round(Number(document.getElementById("g-monto").value));
+  const fecha=document.getElementById("g-fecha").value;
+  if(!(monto>0)){alert("Escribe un monto mayor a 0.");return;}
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(fecha)){alert("Elige la fecha del gasto.");return;}
+  const id=GASTOS.reduce((m,g)=>Math.max(m,g.id||0),0)+1;
+  GASTOS.push({id,empresa:parseInt(document.getElementById("g-empresa").value)||(EMPRESAS[0]&&EMPRESAS[0].id)||1,monto,fecha,categoria:document.getElementById("g-cat").value,nota:document.getElementById("g-nota").value.trim().slice(0,120)});
+  cerrar("modal-gasto");renderAll();
+}
+function borrarGasto(id){
+  if(!confirm("¿Borrar este gasto?"))return;
+  const i=GASTOS.findIndex(g=>g.id===id);if(i>=0)GASTOS.splice(i,1);renderAll();
+}
+function renderGastos(){
+  const sel=document.getElementById("gas-filtro");if(!sel)return;
+  const prev=sel.value||"todas";
+  sel.innerHTML='<option value="todas">Todas las empresas</option>'+EMPRESAS.map(e=>`<option value="${e.id}">${esc(e.nombre)}</option>`).join("");
+  sel.value=[...sel.options].some(o=>o.value===prev)?prev:"todas";
+  const lista=GASTOS.filter(g=>sel.value==="todas"||String(g.empresa)===sel.value);
+  const hoy=gHoy(),lunes=gLunes(),mes=hoy.slice(0,7);
+  const sum=a=>a.reduce((s,g)=>s+g.monto,0);
+  const gHoyT=sum(lista.filter(g=>g.fecha===hoy)),gSem=sum(lista.filter(g=>g.fecha>=lunes&&g.fecha<=hoy)),delMes=lista.filter(g=>g.fecha.slice(0,7)===mes),gMes=sum(delMes),gTot=sum(lista);
+  const m=(ico,bg,col,lbl,val,sub)=>`<div class="metric"><div class="m-ico" style="background:${bg};color:${col}">${ico}</div><div class="m-lbl">${lbl}</div><div class="m-val" style="font-size:17px">${fmt(val)}</div><div class="m-sub" style="color:var(--text3)">${sub}</div></div>`;
+  document.getElementById("gas-metricas").innerHTML=
+    m("📅","var(--red-l)","var(--red)","Gastado hoy",gHoyT,"Desde las 00:00")+
+    m("🗓️","var(--amber-l)","var(--amber)","Esta semana",gSem,"Desde el lunes")+
+    m("📆","var(--blue-l)","var(--blue)","Este mes",gMes,delMes.length+" gasto(s)")+
+    m("🧾","var(--purple-l)","var(--purple)","Total registrado",gTot,lista.length+" gasto(s)");
+  const por={};delMes.forEach(g=>{const c=g.categoria||"Otros";por[c]=(por[c]||0)+g.monto;});
+  let bar="",leg="";
+  Object.entries(por).sort((a,b)=>b[1]-a[1]).forEach(([c,v])=>{const pct=gMes>0?Math.round(v/gMes*100):0;const col=GASTO_COLOR[c]||"#888780";bar+=`<div style="width:${(v/gMes*100).toFixed(2)}%;height:100%;background:${col}"></div>`;leg+=`<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px;padding:4px 0"><span style="display:flex;align-items:center;gap:7px"><span style="width:10px;height:10px;border-radius:3px;background:${col}"></span>${esc(c)}</span><span style="color:var(--text2)">${fmt(v)} · ${pct}%</span></div>`;});
+  document.getElementById("gas-cats").innerHTML=gMes>0?`<div style="display:flex;height:12px;border-radius:20px;overflow:hidden;background:var(--surface2);margin-bottom:10px">${bar}</div>${leg}`:`<div style="font-size:13px;color:var(--text3)">Todavía no hay gastos este mes.</div>`;
+  const ult=[...lista].sort((a,b)=>b.fecha.localeCompare(a.fecha)||b.id-a.id).slice(0,100);
+  document.getElementById("gas-lista").innerHTML=ult.length?ult.map(g=>{const emp=EMPRESAS.find(e=>e.id===g.empresa);return `<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:.5px solid var(--border)"><div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:500">${esc(g.categoria||"Otros")}${g.nota?` <span style="font-weight:400;color:var(--text2)">· ${esc(g.nota)}</span>`:""}</div><div style="font-size:12px;color:var(--text3)">${fmtF(g.fecha)}${emp?" · "+esc(emp.nombre):""}</div></div><div style="font-size:14px;font-weight:500">${fmt(g.monto)}</div><button class="btn btn-sm" onclick="borrarGasto(${g.id})" title="Borrar" aria-label="Borrar gasto">✕</button></div>`;}).join(""):`<div style="font-size:13px;color:var(--text3)">Aún no has anotado gastos. Usa «+ Agregar gasto».</div>`;
+}
+
+// ═══════════════════════════
 // CALENDARIO
 // ═══════════════════════════
 function renderCalendario(){
@@ -1979,6 +2053,7 @@ const TB={
   dashboard:['Panel principal','Monitoreo en tiempo real de todas tus empresas'],
   grafico:['Analisis financiero','Graficos de rendimiento y evolucion de cobros'],
   finanzas:['Finanzas por empresa','Ingresos, costos y ganancia neta de cada negocio'],
+  gastos:['Gastos','Cuánto se ha gastado, por día, semana, mes y categoría'],
   calendario:['Calendario de vencimientos','Vista mensual de todos los proximos vencimientos'],
   clientes:['Clientes','Administra todos tus clientes y suscripciones'],
   alertas:['Alertas','Notificaciones en tiempo real de pagos y vencimientos'],
@@ -2003,6 +2078,7 @@ function mostrarSeccion(el,sec){
   document.getElementById('tb-sub').textContent=info[1];
   if(sec==='grafico')setTimeout(()=>renderGraficos(),80);
   if(sec==='finanzas')renderFinanzas();
+  if(sec==='gastos')renderGastos();
   if(sec==='integraciones')mpCargarCuenta();
   if(sec==='calendario')renderCalendario();
   if(sec==='planes')cargarEstadoPrueba();
@@ -2062,7 +2138,7 @@ function dRel(n){const d=new Date();d.setDate(d.getDate()+n);return d.toISOStrin
 const OFFS={1:-31,2:15,3:-40,4:20,5:10,6:-36,7:6,8:8};
 CLIENTES.forEach(c=>{if(OFFS[c.id]!==undefined)c.proximoVenc=dRel(OFFS[c.id]);});
 function refreshUser(){['av-sb','av-top'].forEach(id=>document.getElementById(id).textContent=CONFIG.iniciales);document.getElementById('sb-nombre').textContent=CONFIG.nombre;document.getElementById('cfg-nombre').value=CONFIG.nombre;}
-function refreshActive(){const s=document.querySelector('.sec.active')?.id;if(s==='s-grafico')renderGraficos();if(s==='s-finanzas')renderFinanzas();if(s==='s-calendario')renderCalendario();}
+function refreshActive(){const s=document.querySelector('.sec.active')?.id;if(s==='s-grafico')renderGraficos();if(s==='s-finanzas')renderFinanzas();if(s==='s-gastos')renderGastos();if(s==='s-calendario')renderCalendario();}
 function copiarLink(b){const t='https://pay.vencio.cl/c/a1b2c3d4';Promise.resolve(navigator.clipboard&&navigator.clipboard.writeText(t)).catch(()=>{}).finally(()=>{b.textContent='¡Copiado!';setTimeout(()=>b.textContent='Copiar link',1500);});}
 // ═══════════════════════════
 // NAVEGACIÓN E HISTORIAL
