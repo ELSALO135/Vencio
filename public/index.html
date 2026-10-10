@@ -1489,7 +1489,7 @@ function renderIntegraciones(){
 // ═══════════════════════════
 // MERCADO PAGO: conectar / desconectar / estado
 // ═══════════════════════════
-function mpConectar(){if(DEMO||!TOKEN){alert("Inicia sesión con una cuenta real (no la demo) para conectar Mercado Pago.");return;}location.href="/api/mp/conectar?token="+encodeURIComponent(TOKEN);}
+function mpConectar(){if(DEMO||!TOKEN){alert("Inicia sesión con una cuenta real (no la demo) para conectar Mercado Pago.");return;}if(!confirm("Mercado Pago va a conectar la cuenta en la que ya tienes sesión abierta en este navegador, sin pedirte usuario ni clave.\n\nSi quieres conectar OTRA cuenta (por ejemplo, la de otra persona o la de tu negocio), cancela, abre Vencio en una ventana de incógnito (o cierra sesión en mercadopago.cl) y vuelve a intentar.\n\n¿Continuar con la cuenta actual?"))return;location.href="/api/mp/conectar?token="+encodeURIComponent(TOKEN);}
 async function mpDesconectar(){if(!confirm("¿Desconectar tu cuenta de Mercado Pago? Las suscripciones activas seguirán cobrando hasta que las canceles desde tu cuenta de Mercado Pago."))return;try{await api("/mp/desconectar","POST",{});MP_CONECTADO=false;renderIntegraciones();mpCargarCuenta();}catch(e){alert(e.message);}}
 // ═══════════════════════════
 // PAYPAL: conectar / desconectar (cada negocio pega las llaves de su propia app de PayPal)
@@ -1666,7 +1666,7 @@ function eliminarMod(id){if(confirm("Eliminar?")){ const idx=MODERADORES.findInd
 function renderGraficos(){
   const cobrado=CLIENTES.reduce((s,c)=>s+c.historial.reduce((a,h)=>a+h.monto,0),0);
   const pending=CLIENTES.filter(c=>c.estado!=="al día").reduce((s,c)=>s+c.montoCuota,0);
-  const avg=Math.round(CLIENTES.reduce((s,c)=>s+calcScore(c),0)/CLIENTES.length);
+  const avg=CLIENTES.length?Math.round(CLIENTES.reduce((s,c)=>s+calcScore(c),0)/CLIENTES.length):"—";
   const el2=document.getElementById("metrics-row2");
   if(el2)el2.innerHTML=`
     <div class="metric"><div class="m-ico" style="background:var(--green-l);color:var(--green)">💰</div><div class="m-lbl">Total cobrado</div><div class="m-val" style="font-size:17px">${fmt(cobrado)}</div><div class="m-sub" style="color:var(--green)">Acumulado historico</div></div>
@@ -1678,11 +1678,21 @@ function renderGraficos(){
   if(!ctx1||!ctx2)return;
   if(chartB)chartB.destroy();
   if(chartT)chartT.destroy();
-  const meses=["Ene","Feb","Mar","Abr","May","Jun"];
+  const MN=["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+  const hoyD=new Date(),claves=[],meses=[];
+  for(let i=5;i>=0;i--){const d=new Date(hoyD.getFullYear(),hoyD.getMonth()-i,1);claves.push(d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"));meses.push(MN[d.getMonth()]);}
+  // Datos reales: cobrado = pagos registrados en el historial de cada cliente; pendiente = cuotas aún no pagadas con vencimiento en ese mes.
+  const cobM=claves.map(()=>0),penM=claves.map(()=>0);
+  CLIENTES.forEach(c=>{
+    (c.historial||[]).forEach(h=>{const k=claves.indexOf(String(h.fecha||"").slice(0,7));if(k>=0)cobM[k]+=h.monto||0;});
+    if(c.estado!=="al día"){const k=claves.indexOf(String(c.proximoVenc||"").slice(0,7));if(k>=0)penM[k]+=c.montoCuota||0;}
+  });
   const darkMode=document.documentElement.getAttribute("data-theme")==="dark";
   const gridColor=darkMode?"rgba(255,255,255,.08)":"#F0EEE9";
   const tickColor=darkMode?"#9A9590":"#A8A49C";
-  chartB=new Chart(ctx1,{type:"bar",data:{labels:meses,datasets:[{label:"Cobrado",data:[1200000,980000,1450000,1100000,1680000,1340000].map(v=>convM(v)),backgroundColor:"rgba(59,109,17,.5)",borderColor:"#3B6D11",borderWidth:1.5,borderRadius:5},{label:"Pendiente",data:[320000,450000,210000,560000,380000,490000].map(v=>convM(v)),backgroundColor:"rgba(133,79,11,.4)",borderColor:"#854F0B",borderWidth:1.5,borderRadius:5}]},options:{responsive:true,plugins:{legend:{labels:{font:{family:"DM Sans",size:12},color:tickColor}}},scales:{y:{ticks:{callback:v=>fmt(v/convM(1)),font:{family:"DM Sans",size:11},color:tickColor},grid:{color:gridColor}},x:{grid:{display:false},ticks:{font:{family:"DM Sans",size:11},color:tickColor}}}}});
+  chartB=new Chart(ctx1,{type:"bar",data:{labels:meses,datasets:[{label:"Cobrado",data:cobM.map(v=>convM(v)),backgroundColor:"rgba(59,109,17,.5)",borderColor:"#3B6D11",borderWidth:1.5,borderRadius:5},{label:"Pendiente",data:penM.map(v=>convM(v)),backgroundColor:"rgba(133,79,11,.4)",borderColor:"#854F0B",borderWidth:1.5,borderRadius:5}]},options:{responsive:true,plugins:{legend:{labels:{font:{family:"DM Sans",size:12},color:tickColor}}},scales:{y:{beginAtZero:true,suggestedMax:convM(100000),ticks:{callback:v=>fmt(v/convM(1)),font:{family:"DM Sans",size:11},color:tickColor},grid:{color:gridColor}},x:{grid:{display:false},ticks:{font:{family:"DM Sans",size:11},color:tickColor}}}}});
+  const vacio=!CLIENTES.length;
+  [ctx1,ctx2].forEach(cv=>{let n=cv.parentNode.querySelector(".gr-vacio");if(!n){n=document.createElement("div");n.className="gr-vacio";n.style.cssText="font-size:13px;color:var(--text3);margin-top:8px";cv.parentNode.appendChild(n);}n.textContent=vacio?"Todavía no hay datos. Cuando agregues clientes y registres pagos, aparecerán aquí.":"";});
   const ad=CLIENTES.filter(c=>c.estado==="al día").length;
   const pe=CLIENTES.filter(c=>c.estado==="pendiente").length;
   const ve=CLIENTES.filter(c=>c.estado==="vencida").length;
@@ -1693,7 +1703,7 @@ function renderGraficos(){
   if(!tc)return;
   let h="";
   top.forEach((c,i)=>{const tot=c.historial.reduce((s,h)=>s+h.monto,0);const pct=Math.round(tot/maxM*100);h+=`<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px"><div style="font-size:13px;font-weight:500;width:20px;color:var(--text3)">${i+1}</div><div style="font-size:13px;font-weight:500;min-width:120px">${esc(c.nombre)}</div><div style="flex:1"><div style="background:var(--surface2);border-radius:20px;height:8px;overflow:hidden"><div style="width:${pct}%;height:100%;background:var(--blue);border-radius:20px"></div></div></div><div style="font-size:13px;font-weight:500;min-width:90px;text-align:right">${fmt(tot)}</div>${scoreHTML(c)}</div>`;});
-  tc.innerHTML=h;
+  tc.innerHTML=h||`<div style="font-size:13px;color:var(--text3)">Todavía no hay clientes con pagos.</div>`;
 }
 
 // ═══════════════════════════
