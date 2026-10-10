@@ -7,7 +7,7 @@ if (!process.env.DATABASE_URL || !JWT_SECRET) {
   console.error('Falta DATABASE_URL o JWT_SECRET. Revisa que el archivo se llame ".env" (con punto) y esté junto a server.js.');
   process.exit(1);
 }
-const APP_URL = (process.env.APP_URL || 'https://vencio-production.up.railway.app').replace(/\/$/, '');
+const APP_URL = (process.env.APP_URL || 'https://vencio.cl').replace(/\/$/, '');
 // Precios en CLP por 30 días. AJÚSTALOS a lo que quieras cobrar.
 // Si los cambias, cámbialos también en index.html: PLANES_LP (portada) y la pantalla "Planes" de la app.
 const PLANES = { Principal: 7990, Plus: 16990, Pro: 27990, Omnibus: 59990 };
@@ -990,6 +990,243 @@ app.post('/api/mp/clientes/:clienteId/cancelar-suscripcion', auth, async (req, r
   } catch (e) { fail(res, e, 'No se pudo cancelar la suscripción'); }
 });
 
+// ── PayPal: cada negocio pega las llaves de SU app de PayPal y cobra a sus clientes del extranjero ──
+// Importante: PayPal NO acepta pesos chilenos (CLP), así que estos cobros se hacen en dólares (USD).
+// Este camino no necesita que PayPal apruebe nada a Vencio: cada negocio crea su app en developer.paypal.com
+// y pega aquí el Client ID y el Secret. Se guardan cifrados (igual que los tokens de Mercado Pago).
+// No usa webhooks: el estado se confirma cuando el cliente vuelve del pago y cuando tú abres la ficha / pulsas "Revisar".
+const PP_HOST = { live: 'https://api-m.paypal.com', sandbox: 'https://api-m.sandbox.paypal.com' };
+const ppTokens = new Map(); // userId -> { token, modo, hasta }. El token de PayPal dura horas; se reutiliza.
+
+const ppTextoError = d => (d && ((d.details && d.details[0] && (d.details[0].description || d.details[0].issue)) || d.message || d.error_description)) || 'Error al comunicarse con PayPal';
+const ppCall = async (modo, method, path, token, body) => {
+  const r = await fetch(`${PP_HOST[modo]}${path}`, {
+    method, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, Prefer: 'return=representation' },
+    body: body ? JSON.stringify(body) : undefined });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) { const e = new Error(ppTextoError(d)); e.status = r.status; e.pp = d; throw e; }
+  return d;
+};
+const ppPedirToken = async (modo, clientId, secret) => {
+  const r = await fetch(`${PP_HOST[modo]}/v1/oauth2/token`, {
+    method: 'POST', body: 'grant_type=client_credentials',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded', Authorization: 'Basic ' + Buffer.from(`${clientId}:${secret}`).toString('base64') } });
+  const t = await r.json().catch(() => ({}));
+  if (!r.ok || !t.access_token) { const e = new Error('PayPal no aceptó las llaves. Revisa que sean las de la app correcta y que el modo (real o pruebas) coincida.'); e.usuario = true; throw e; }
+  return t;
+};
+// Devuelve la sesión de PayPal del usuario (modo + token ya listo) o null si no conectó PayPal
+const ppSesion = async userId => {
+  const c = (await pool.query('SELECT * FROM pp_cuentas WHERE user_id=$1', [userId])).rows[0];
+  if (!c) return null;
+  const k = ppTokens.get(userId);
+  if (k && k.modo === c.modo && k.hasta > Date.now()) return { modo: c.modo, token: k.token, cuenta: c };
+  const t = await ppPedirToken(c.modo, decrypt(c.client_id), decrypt(c.client_secret));
+  ppTokens.set(userId, { token: t.access_token, modo: c.modo, hasta: Date.now() + Math.max(60, (Number(t.expires_in) || 300) - 120) * 1000 });
+  return { modo: c.modo, token: t.access_token, cuenta: c };
+};
+const ppFail = (res, e, msg) => { console.error('PayPal:', e.message, e.pp ? JSON.stringify(e.pp).slice(0, 500) : ''); res.status(500).json({ error: `${msg}: ${e.message}` }); };
+const ppSinCuenta = res => res.status(400).json({ error: 'Conecta tu cuenta de PayPal primero (sección Integraciones).' });
+// Monto en USD: entre 1 y 100.000, con 2 decimales
+const ppMonto = v => { const n = Number(v); return Number.isFinite(n) && n >= 1 && n <= 100000 ? n.toFixed(2) : null; };
+const ppLink = d => { const l = (d.links || []).find(x => x.rel === 'payer-action' || x.rel === 'approve'); return l && l.href; };
+// Página sencilla que ve el CLIENTE del negocio al volver de PayPal (no es usuario de Vencio)
+const ppPagina = (titulo, msg) => `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${titulo}</title>
+<style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#F7F6F3;font-family:system-ui,sans-serif;color:#1A1917}
+.c{max-width:420px;margin:20px;padding:32px;background:#fff;border:1px solid #E4E1D9;border-radius:16px;text-align:center}h1{font-size:22px;margin:0 0 10px}p{color:#5A5750;line-height:1.5;margin:0}</style></head>
+<body><div class="c"><h1>${titulo}</h1><p>${msg}</p></div></body></html>`;
+
+app.get('/api/pp/estado', auth, async (req, res) => {
+  try {
+    const c = (await pool.query('SELECT modo FROM pp_cuentas WHERE user_id=$1', [req.userId])).rows[0];
+    res.json({ conectado: !!c, modo: c ? c.modo : null });
+  } catch (e) { fail(res, e, 'Error al consultar PayPal'); }
+});
+
+app.post('/api/pp/conectar', auth, limitar(10, 15 * 60 * 1000), async (req, res) => {
+  try {
+    const clientId = String(req.body.clientId || '').trim(), secret = String(req.body.secret || '').trim();
+    const modo = req.body.modo === 'sandbox' ? 'sandbox' : 'live';
+    if (clientId.length < 10 || clientId.length > 300 || secret.length < 10 || secret.length > 300)
+      return res.status(400).json({ error: 'Pega el Client ID y el Secret completos de tu app de PayPal.' });
+    await ppPedirToken(modo, clientId, secret); // comprueba que las llaves sirven antes de guardarlas
+    await pool.query(
+      `INSERT INTO pp_cuentas(user_id,client_id,client_secret,modo) VALUES($1,$2,$3,$4)
+       ON CONFLICT(user_id) DO UPDATE SET client_id=$2,client_secret=$3,modo=$4,product_id=NULL`,
+      [req.userId, encrypt(clientId), encrypt(secret), modo]);
+    ppTokens.delete(req.userId);
+    res.json({ ok: true, modo });
+  } catch (e) { console.error('PayPal conectar:', e.message); res.status(e.usuario ? 400 : 500).json({ error: e.usuario ? e.message : 'No se pudo conectar PayPal' }); }
+});
+
+app.post('/api/pp/desconectar', auth, async (req, res) => {
+  try { await pool.query('DELETE FROM pp_cuentas WHERE user_id=$1', [req.userId]); ppTokens.delete(req.userId); res.json({ ok: true }); }
+  catch (e) { fail(res, e, 'Error al desconectar PayPal'); }
+});
+
+// Cobro puntual (cuotas): se crea una "orden" de PayPal y se devuelve el link para que el cliente la apruebe y pague.
+app.post('/api/pp/clientes/:clienteId/cobrar', auth, async (req, res) => {
+  try {
+    const s = await ppSesion(req.userId);
+    if (!s) return ppSinCuenta(res);
+    const monto = ppMonto(req.body.monto), subject = String(req.body.subject || 'Cobro de cuota').slice(0, 120);
+    if (!monto) return res.status(400).json({ error: 'Monto inválido: ingresa dólares (USD), mínimo 1.' });
+    const clienteId = Number(req.params.clienteId), ref = `COB-${req.userId}-${clienteId}-${Date.now()}`;
+    const o = await ppCall(s.modo, 'POST', '/v2/checkout/orders', s.token, {
+      intent: 'CAPTURE',
+      purchase_units: [{ reference_id: ref, custom_id: ref, description: subject, amount: { currency_code: 'USD', value: monto } }],
+      payment_source: { paypal: { experience_context: { user_action: 'PAY_NOW', shipping_preference: 'NO_SHIPPING',
+        return_url: `${APP_URL}/api/pp/retorno`, cancel_url: `${APP_URL}/api/pp/cancelado` } } } });
+    const url = ppLink(o);
+    if (!o.id || !url) throw new Error('PayPal no devolvió el link de pago');
+    await pool.query('INSERT INTO pp_cobros(user_id,cliente_id,order_id,monto,descripcion) VALUES($1,$2,$3,$4,$5)',
+      [req.userId, clienteId, o.id, monto, subject]);
+    res.json({ url });
+  } catch (e) { ppFail(res, e, 'No se pudo generar el link de cobro con PayPal'); }
+});
+
+// Revisa en PayPal el estado de un cobro y, si el cliente ya lo aprobó, lo captura (ahí recién se mueve el dinero).
+// Es seguro llamarlo varias veces: si ya estaba capturado, solo lo marca como pagado.
+const ppConfirmarCobro = async c => {
+  if (c.estado === 'pagado') return c.estado;
+  const s = await ppSesion(c.user_id);
+  if (!s) return c.estado;
+  let o = await ppCall(s.modo, 'GET', `/v2/checkout/orders/${encodeURIComponent(c.order_id)}`, s.token);
+  if (o.status === 'APPROVED') {
+    try { o = await ppCall(s.modo, 'POST', `/v2/checkout/orders/${encodeURIComponent(c.order_id)}/capture`, s.token, {}); }
+    catch (e) { o = await ppCall(s.modo, 'GET', `/v2/checkout/orders/${encodeURIComponent(c.order_id)}`, s.token); }
+  }
+  const cap = o.purchase_units && o.purchase_units[0] && o.purchase_units[0].payments && o.purchase_units[0].payments.captures && o.purchase_units[0].payments.captures[0];
+  let estado = 'pendiente';
+  if (o.status === 'COMPLETED' && (!cap || cap.status === 'COMPLETED')) estado = 'pagado';
+  else if (o.status === 'VOIDED' || (cap && (cap.status === 'DECLINED' || cap.status === 'FAILED'))) estado = 'fallido';
+  if (estado !== c.estado)
+    await pool.query(`UPDATE pp_cobros SET estado=$1::varchar, capture_id=$2, pagado_at=CASE WHEN $1::varchar='pagado' THEN NOW() ELSE pagado_at END WHERE id=$3 AND estado<>'pagado'`,
+      [estado, cap ? cap.id : null, c.id]);
+  return estado;
+};
+
+// A esta dirección vuelve el CLIENTE desde PayPal después de aprobar el pago (PayPal agrega ?token=<id de la orden>)
+app.get('/api/pp/retorno', async (req, res) => {
+  const idOrden = String(req.query.token || '');
+  res.set('Content-Type', 'text/html; charset=utf-8');
+  if (!/^[A-Za-z0-9_-]{5,60}$/.test(idOrden)) return res.status(400).send(ppPagina('Link no válido', 'Este link de pago no es válido.'));
+  try {
+    const c = (await pool.query('SELECT * FROM pp_cobros WHERE order_id=$1', [idOrden])).rows[0];
+    if (!c) return res.status(404).send(ppPagina('Link no válido', 'No encontramos este cobro.'));
+    const estado = await ppConfirmarCobro(c);
+    if (estado === 'pagado') return res.send(ppPagina('¡Pago recibido!', 'Tu pago fue procesado correctamente. Ya puedes cerrar esta ventana.'));
+    if (estado === 'fallido') return res.send(ppPagina('No se pudo completar el pago', 'PayPal no pudo procesar el pago. Pídele un nuevo link a quien te cobró.'));
+    res.send(ppPagina('Estamos confirmando tu pago', 'PayPal aún está procesando el pago. Ya puedes cerrar esta ventana; quien te cobró verá el resultado en cuanto se confirme.'));
+  } catch (e) {
+    console.error('PayPal retorno:', e.message);
+    res.status(500).send(ppPagina('Algo salió mal', 'No pudimos confirmar el pago ahora mismo. Si PayPal te cobró, avísale a quien te envió el link.'));
+  }
+});
+app.get('/api/pp/cancelado', (req, res) => {
+  res.set('Content-Type', 'text/html; charset=utf-8');
+  res.send(ppPagina('Pago cancelado', 'No se hizo ningún cobro. Si quieres pagar, abre de nuevo el link que te enviaron.'));
+});
+
+app.get('/api/pp/clientes/:clienteId/cobros', auth, async (req, res) => {
+  try {
+    const r = await pool.query(
+      'SELECT order_id,monto,moneda,estado,created_at,pagado_at FROM pp_cobros WHERE user_id=$1 AND cliente_id=$2 ORDER BY id DESC LIMIT 10',
+      [req.userId, Number(req.params.clienteId)]);
+    res.json(r.rows);
+  } catch (e) { fail(res, e, 'Error al cargar los cobros de PayPal'); }
+});
+// El dueño pulsa "Revisar": consulta a PayPal y actualiza el cobro (por si el cliente pagó pero no volvió a la página)
+app.post('/api/pp/cobros/:orderId/revisar', auth, async (req, res) => {
+  try {
+    const c = (await pool.query('SELECT * FROM pp_cobros WHERE user_id=$1 AND order_id=$2', [req.userId, String(req.params.orderId)])).rows[0];
+    if (!c) return res.status(404).json({ error: 'Cobro no encontrado' });
+    res.json({ estado: await ppConfirmarCobro(c) });
+  } catch (e) { ppFail(res, e, 'No se pudo revisar el cobro en PayPal'); }
+});
+
+// Membresías: suscripción mensual de PayPal (el cliente la autoriza UNA vez y PayPal cobra solo cada mes).
+// PayPal pide un "plan" con el precio; como cada cliente puede tener un monto distinto, se crea un plan por cliente.
+app.post('/api/pp/clientes/:clienteId/suscribir', auth, async (req, res) => {
+  try {
+    const s = await ppSesion(req.userId);
+    if (!s) return ppSinCuenta(res);
+    const clienteId = Number(req.params.clienteId), monto = ppMonto(req.body.monto);
+    const nombre = String(req.body.nombre || 'Cliente').slice(0, 80), email = String(req.body.email || '').trim();
+    if (!monto) return res.status(400).json({ error: 'Monto inválido: ingresa dólares (USD), mínimo 1.' });
+    const previa = (await pool.query('SELECT activo FROM pp_suscripciones WHERE user_id=$1 AND cliente_id=$2', [req.userId, clienteId])).rows[0];
+    if (previa && previa.activo) return res.status(400).json({ error: 'Este cliente ya tiene una suscripción activa en PayPal. Cancélala primero si quieres crear otra.' });
+    let productId = s.cuenta.product_id;
+    if (!productId) {
+      const p = await ppCall(s.modo, 'POST', '/v1/catalogs/products', s.token, { name: 'Membresías', description: 'Membresías mensuales', type: 'SERVICE', category: 'SOFTWARE' });
+      productId = p.id;
+      await pool.query('UPDATE pp_cuentas SET product_id=$1 WHERE user_id=$2', [productId, req.userId]);
+    }
+    const plan = await ppCall(s.modo, 'POST', '/v1/billing/plans', s.token, {
+      product_id: productId, name: `Membresía - ${nombre}`.slice(0, 120), status: 'ACTIVE',
+      billing_cycles: [{ frequency: { interval_unit: 'MONTH', interval_count: 1 }, tenure_type: 'REGULAR', sequence: 1, total_cycles: 0,
+        pricing_scheme: { fixed_price: { value: monto, currency_code: 'USD' } } }],
+      payment_preferences: { auto_bill_outstanding: true, setup_fee_failure_action: 'CONTINUE', payment_failure_threshold: 3 } });
+    const sus = await ppCall(s.modo, 'POST', '/v1/billing/subscriptions', s.token, {
+      plan_id: plan.id, custom_id: `${req.userId}_${clienteId}`,
+      ...(/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) ? { subscriber: { email_address: email } } : {}),
+      application_context: { user_action: 'SUBSCRIBE_NOW', shipping_preference: 'NO_SHIPPING',
+        return_url: `${APP_URL}/api/pp/retorno-sus`, cancel_url: `${APP_URL}/api/pp/cancelado` } });
+    const url = ppLink(sus);
+    if (!sus.id || !url) throw new Error('PayPal no devolvió el link de suscripción');
+    await pool.query(
+      `INSERT INTO pp_suscripciones(user_id,cliente_id,subscription_id,plan_id,monto) VALUES($1,$2,$3,$4,$5)
+       ON CONFLICT(user_id,cliente_id) DO UPDATE SET subscription_id=$3,plan_id=$4,monto=$5,activo=FALSE`,
+      [req.userId, clienteId, sus.id, plan.id, monto]);
+    res.json({ url });
+  } catch (e) { ppFail(res, e, 'No se pudo generar el link de suscripción con PayPal'); }
+});
+
+// Consulta a PayPal el estado de la suscripción y lo deja guardado. Solo "ACTIVE" cuenta como activa.
+const ppActualizarSuscripcion = async r => {
+  const s = await ppSesion(r.user_id);
+  if (!s) return { activo: r.activo, estado: null };
+  const sus = await ppCall(s.modo, 'GET', `/v1/billing/subscriptions/${encodeURIComponent(r.subscription_id)}`, s.token);
+  const activo = sus.status === 'ACTIVE';
+  if (activo !== r.activo) await pool.query('UPDATE pp_suscripciones SET activo=$1 WHERE id=$2', [activo, r.id]);
+  return { activo, estado: sus.status };
+};
+app.get('/api/pp/retorno-sus', async (req, res) => {
+  const id = String(req.query.subscription_id || '');
+  res.set('Content-Type', 'text/html; charset=utf-8');
+  if (!/^[A-Za-z0-9_-]{5,60}$/.test(id)) return res.status(400).send(ppPagina('Link no válido', 'Este link no es válido.'));
+  try {
+    const r = (await pool.query('SELECT * FROM pp_suscripciones WHERE subscription_id=$1', [id])).rows[0];
+    if (!r) return res.status(404).send(ppPagina('Link no válido', 'No encontramos esta suscripción.'));
+    const { activo } = await ppActualizarSuscripcion(r);
+    if (activo) return res.send(ppPagina('¡Suscripción activada!', 'Listo: PayPal te cobrará automáticamente cada mes. Ya puedes cerrar esta ventana.'));
+    res.send(ppPagina('Estamos confirmando tu suscripción', 'PayPal aún está procesándola. Ya puedes cerrar esta ventana; quien te cobra la verá activa en cuanto se confirme.'));
+  } catch (e) {
+    console.error('PayPal retorno-sus:', e.message);
+    res.status(500).send(ppPagina('Algo salió mal', 'No pudimos confirmar la suscripción ahora mismo. Avísale a quien te envió el link.'));
+  }
+});
+app.get('/api/pp/clientes/:clienteId/estado', auth, async (req, res) => {
+  try {
+    const r = (await pool.query('SELECT * FROM pp_suscripciones WHERE user_id=$1 AND cliente_id=$2', [req.userId, Number(req.params.clienteId)])).rows[0];
+    if (!r) return res.json({ activo: false, estado: null });
+    try { res.json(await ppActualizarSuscripcion(r)); }
+    catch (e) { console.error('PayPal estado:', e.message); res.json({ activo: r.activo, estado: null }); }
+  } catch (e) { fail(res, e, 'Error al consultar el estado'); }
+});
+app.post('/api/pp/clientes/:clienteId/cancelar-suscripcion', auth, async (req, res) => {
+  try {
+    const r = (await pool.query('SELECT * FROM pp_suscripciones WHERE user_id=$1 AND cliente_id=$2', [req.userId, Number(req.params.clienteId)])).rows[0];
+    if (!r) return res.status(404).json({ error: 'Este cliente no tiene suscripción' });
+    const s = await ppSesion(req.userId);
+    if (!s) return ppSinCuenta(res); // sin las llaves no se puede cancelar en PayPal: no se dice "cancelada" si no lo está
+    try { await ppCall(s.modo, 'POST', `/v1/billing/subscriptions/${encodeURIComponent(r.subscription_id)}/cancel`, s.token, { reason: 'Cancelada por el comercio' }); }
+    catch (e) { if (e.status !== 422) throw e; } // 422 = ya estaba cancelada o vencida en PayPal
+    await pool.query('UPDATE pp_suscripciones SET activo=FALSE WHERE id=$1', [r.id]);
+    res.json({ ok: true });
+  } catch (e) { ppFail(res, e, 'No se pudo cancelar la suscripción en PayPal'); }
+});
+
 (async () => {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users(
@@ -1044,6 +1281,20 @@ app.post('/api/mp/clientes/:clienteId/cancelar-suscripcion', auth, async (req, r
     CREATE TABLE IF NOT EXISTS mp_suscripciones(
       id SERIAL PRIMARY KEY, user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       cliente_id INT NOT NULL, preapproval_id VARCHAR(100) NOT NULL, monto INT NOT NULL,
+      activo BOOLEAN NOT NULL DEFAULT FALSE, created_at TIMESTAMP DEFAULT NOW(), UNIQUE(user_id, cliente_id));
+    -- PayPal: llaves (cifradas) de la app de PayPal de cada usuario, para cobrar a clientes del extranjero en USD.
+    -- modo: 'live' (real) o 'sandbox' (pruebas). product_id: producto de PayPal que se crea una sola vez para las membresías.
+    CREATE TABLE IF NOT EXISTS pp_cuentas(
+      user_id INT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, client_id TEXT NOT NULL, client_secret TEXT NOT NULL,
+      modo VARCHAR(10) NOT NULL DEFAULT 'live', product_id VARCHAR(60), created_at TIMESTAMP DEFAULT NOW());
+    CREATE TABLE IF NOT EXISTS pp_cobros(
+      id SERIAL PRIMARY KEY, user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      cliente_id INT NOT NULL, order_id VARCHAR(60) UNIQUE NOT NULL, capture_id VARCHAR(60), descripcion VARCHAR(120),
+      monto NUMERIC(12,2) NOT NULL, moneda VARCHAR(3) NOT NULL DEFAULT 'USD', estado VARCHAR(20) NOT NULL DEFAULT 'pendiente',
+      created_at TIMESTAMP DEFAULT NOW(), pagado_at TIMESTAMP);
+    CREATE TABLE IF NOT EXISTS pp_suscripciones(
+      id SERIAL PRIMARY KEY, user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      cliente_id INT NOT NULL, subscription_id VARCHAR(60) NOT NULL, plan_id VARCHAR(60), monto NUMERIC(12,2) NOT NULL,
       activo BOOLEAN NOT NULL DEFAULT FALSE, created_at TIMESTAMP DEFAULT NOW(), UNIQUE(user_id, cliente_id));`);
   if (ADMIN_EMAIL && !(await pool.query('SELECT 1 FROM users WHERE LOWER(email)=$1', [ADMIN_EMAIL])).rowCount)
     console.warn('⚠ ADMIN_EMAIL no coincide con ningún usuario registrado: revisa que sea EXACTAMENTE el correo con el que entras a Vencio.');
