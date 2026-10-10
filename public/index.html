@@ -1038,19 +1038,19 @@ const TASAS_CLP={USD:0.00105,CLP:1,ARS:1.05,MXN:0.0185,EUR:0.00098,GBP:0.00084,S
 const EMPRESAS=[{id:1,nombre:"Constructora Norte"},{id:2,nombre:"Tech Soluciones"},{id:3,nombre:"Materiales Sur"},{id:4,nombre:"Servicios Express"}];
 const CLIENTES=[
   {id:1,nombre:"Ana Torres",rut:"12.345.678-9",email:"ana@gmail.com",telefono:"+56 9 8123 4567",empresa:1,montoCuota:320000,cuotasPagadas:3,cuotasTotal:12,proximoVenc:"2026-05-10",estado:"vencida",tipoVenta:"servicio",tipo:"cuotas",metodoPago:"transferencia",historial:[{fecha:"2026-02-26",monto:320000,metodo:"transferencia"},{fecha:"2026-03-28",monto:320000,metodo:"transferencia"},{fecha:"2026-04-30",monto:320000,metodo:"transferencia"}],notas:[{texto:"Llamo el martes, prometio pagar el viernes.",fecha:"2026-05-13"}]},
-  {id:2,nombre:"Pedro Soto",rut:"14.567.890-1",email:"pedro@outlook.com",telefono:"+56 9 7234 5678",empresa:2,montoCuota:150000,cuotasPagadas:8,cuotasTotal:10,proximoVenc:"2026-06-15",estado:"al día",tipoVenta:"producto",tipo:"cuotas",metodoPago:"flow",historial:[{fecha:"2026-01-01",monto:150000,metodo:"flow"},{fecha:"2026-02-01",monto:150000,metodo:"flow"},{fecha:"2026-03-01",monto:150000,metodo:"flow"},{fecha:"2026-04-01",monto:150000,metodo:"flow"},{fecha:"2026-05-01",monto:150000,metodo:"flow"}],notas:[]},
+  {id:2,nombre:"Pedro Soto",rut:"14.567.890-1",email:"pedro@outlook.com",telefono:"+56 9 7234 5678",empresa:2,montoCuota:150000,cuotasPagadas:8,cuotasTotal:10,proximoVenc:"2026-06-15",estado:"al día",tipoVenta:"producto",tipo:"cuotas",metodoPago:"tarjeta",historial:[{fecha:"2026-01-01",monto:150000,metodo:"tarjeta"},{fecha:"2026-02-01",monto:150000,metodo:"tarjeta"},{fecha:"2026-03-01",monto:150000,metodo:"tarjeta"},{fecha:"2026-04-01",monto:150000,metodo:"tarjeta"},{fecha:"2026-05-01",monto:150000,metodo:"tarjeta"}],notas:[]},
   {id:3,nombre:"Luis Mora",rut:"11.222.333-4",email:"luis@empresa.cl",telefono:"+56 9 6345 6789",empresa:3,montoCuota:890000,cuotasPagadas:1,cuotasTotal:6,proximoVenc:"2026-05-01",estado:"vencida",tipoVenta:"producto",tipo:"cuotas",metodoPago:"tarjeta",historial:[{fecha:"2026-02-25",monto:890000,metodo:"tarjeta"}],notas:[{texto:"Cliente dificil de contactar.",fecha:"2026-05-20"}]},
   {id:4,nombre:"Camila Rios",rut:"16.789.012-3",email:"camila@gmail.com",telefono:"+56 9 5456 7890",empresa:4,montoCuota:210000,cuotasPagadas:5,cuotasTotal:8,proximoVenc:"2026-06-20",estado:"pendiente",tipoVenta:"servicio",tipo:"membresia",metodoPago:"tarjeta",historial:[{fecha:"2026-01-20",monto:210000,metodo:"tarjeta"},{fecha:"2026-02-20",monto:210000,metodo:"tarjeta"},{fecha:"2026-03-20",monto:210000,metodo:"tarjeta"}],notas:[]},
-  {id:5,nombre:"Diego Vega",rut:"13.456.789-0",email:"diego@hotmail.com",telefono:"+56 9 4567 8901",empresa:1,montoCuota:540000,cuotasPagadas:10,cuotasTotal:10,proximoVenc:"2026-06-10",estado:"al día",tipoVenta:"servicio",tipo:"membresia",metodoPago:"flow",historial:[{fecha:"2026-01-10",monto:540000,metodo:"flow"},{fecha:"2026-02-10",monto:540000,metodo:"flow"},{fecha:"2026-03-10",monto:540000,metodo:"flow"}],notas:[{texto:"Muy buen pagador.",fecha:"2026-04-01"}]},
+  {id:5,nombre:"Diego Vega",rut:"13.456.789-0",email:"diego@hotmail.com",telefono:"+56 9 4567 8901",empresa:1,montoCuota:540000,cuotasPagadas:10,cuotasTotal:10,proximoVenc:"2026-06-10",estado:"al día",tipoVenta:"servicio",tipo:"membresia",metodoPago:"tarjeta",historial:[{fecha:"2026-01-10",monto:540000,metodo:"tarjeta"},{fecha:"2026-02-10",monto:540000,metodo:"tarjeta"},{fecha:"2026-03-10",monto:540000,metodo:"tarjeta"}],notas:[{texto:"Muy buen pagador.",fecha:"2026-04-01"}]},
   {id:6,nombre:"Sofia Pinto",rut:"15.678.901-2",email:"sofia@gmail.com",telefono:"+56 9 3678 9012",empresa:2,montoCuota:75000,cuotasPagadas:2,cuotasTotal:9,proximoVenc:"2026-05-05",estado:"vencida",tipoVenta:"producto",tipo:"cuotas",metodoPago:"paypal",historial:[{fecha:"2026-03-23",monto:75000,metodo:"paypal"},{fecha:"2026-04-25",monto:75000,metodo:"paypal"}],notas:[]},
   {id:7,nombre:"Marco Fuentes",rut:"10.111.222-5",email:"marco@corp.cl",telefono:"+56 9 2789 0123",empresa:3,montoCuota:300000,cuotasPagadas:6,cuotasTotal:8,proximoVenc:"2026-06-05",estado:"al día",tipoVenta:"producto",tipo:"cuotas",metodoPago:"tarjeta",historial:[{fecha:"2026-01-05",monto:300000,metodo:"tarjeta"},{fecha:"2026-02-05",monto:300000,metodo:"tarjeta"},{fecha:"2026-03-05",monto:300000,metodo:"tarjeta"}],notas:[]},
   {id:8,nombre:"Paula Castillo",rut:"17.890.123-6",email:"paula@gmail.com",telefono:"+56 9 1890 1234",empresa:4,montoCuota:150000,cuotasPagadas:3,cuotasTotal:6,proximoVenc:"2026-06-08",estado:"pendiente",tipoVenta:"servicio",tipo:"membresia",metodoPago:"efectivo",historial:[{fecha:"2026-03-31",monto:150000,metodo:"efectivo"},{fecha:"2026-04-30",monto:150000,metodo:"efectivo"}],notas:[]},
 ];
 const VENTAS=[
   {id:1,empresa:1,cliente:"Ana Torres",concepto:"Cuota mensual",tipo:"cuota",monto:320000,costo:180000,fecha:"2026-04-30",metodoPago:"transferencia"},
-  {id:2,empresa:1,cliente:"Diego Vega",concepto:"Suscripcion premium",tipo:"membresia",monto:540000,costo:210000,fecha:"2026-05-10",metodoPago:"flow"},
+  {id:2,empresa:1,cliente:"Diego Vega",concepto:"Suscripcion premium",tipo:"membresia",monto:540000,costo:210000,fecha:"2026-05-10",metodoPago:"tarjeta"},
   {id:3,empresa:1,cliente:"Carlos Pena",concepto:"Venta al contado",tipo:"contado",monto:1200000,costo:780000,fecha:"2026-05-15",metodoPago:"transferencia"},
-  {id:4,empresa:2,cliente:"Pedro Soto",concepto:"Cuota notebook",tipo:"cuota",monto:150000,costo:95000,fecha:"2026-05-01",metodoPago:"flow"},
+  {id:4,empresa:2,cliente:"Pedro Soto",concepto:"Cuota notebook",tipo:"cuota",monto:150000,costo:95000,fecha:"2026-05-01",metodoPago:"tarjeta"},
   {id:5,empresa:2,cliente:"Sofia Pinto",concepto:"Cuota perifericos",tipo:"cuota",monto:75000,costo:48000,fecha:"2026-04-25",metodoPago:"paypal"},
   {id:6,empresa:2,cliente:"Empresa XYZ",concepto:"Venta 10 monitores",tipo:"producto",monto:980000,costo:620000,fecha:"2026-05-20",metodoPago:"transferencia"},
   {id:7,empresa:3,cliente:"Luis Mora",concepto:"Cuota materiales",tipo:"cuota",monto:890000,costo:610000,fecha:"2026-02-25",metodoPago:"tarjeta"},
@@ -1067,14 +1067,12 @@ const MODERADORES=[
 const METODOS_PAGO={
   transferencia:{nombre:"Transferencia bancaria",color:"#E6F1FB",colorT:"#185FA5",activo:true,desc:"El cliente transfiere y tu confirmas desde el panel."},
   tarjeta:{nombre:"Tarjeta credito/debito",color:"#EAF3DE",colorT:"#3B6D11",activo:true,desc:"Cobro automatico con tarjeta via Mercado Pago."},
-  flow:{nombre:"Flow / Webpay",color:"#FFF0C0",colorT:"#7A5800",activo:false,proximamente:true,desc:"Cobro con Webpay, MACH y otros medios. Aún no está disponible."},
   efectivo:{nombre:"Efectivo",color:"#F0E8FF",colorT:"#5A1E91",activo:true,desc:"El pago se registra manualmente al recibir efectivo."},
   paypal:{nombre:"PayPal",color:"#FCEBEB",colorT:"#A32D2D",activo:true,desc:"Para clientes del extranjero. Se cobra en dólares (USD) con tu cuenta de PayPal."},
 };
 // Mercado Pago ya está integrado de verdad (ver seccion Integraciones). El resto queda para más adelante.
 const INTEGRACIONES=[
   {id:"mp",nombre:"Mercado Pago",logo:"💳",real:true,desc:"Conecta tu cuenta para cobrar cuotas y suscripciones a tus clientes, con cobro automatico mensual."},
-  {id:"flow",nombre:"Flow / Webpay",logo:"⚡",activo:false,desc:"Integracion directa con Transbank. Proximamente.",proximamente:true},
   {id:"pp",nombre:"PayPal",logo:"🅿️",real:true,desc:"Conecta tu cuenta de PayPal para cobrar en dólares (USD) a tus clientes del extranjero, con cuotas o suscripción mensual."},
   {id:"api",nombre:"API Propia",logo:"🔗",activo:false,desc:"Conecta cualquier sistema externo con la API REST de Vencio. Proximamente.",proximamente:true},
 ];
@@ -1261,7 +1259,7 @@ function semHTML(c){const r=calcRiesgo(c);if(r===2)return`<span style="display:f
 function moraBadge(c){const d=diasMora(c);if(d===0)return`<span class="mora-badge mora-0">Al dia</span>`;if(d<=7)return`<span class="mora-badge mora-warn">${d}d</span>`;return`<span class="mora-badge mora-crit">${d}d</span>`;}
 function badge(e){if(e==="al día")return`<span class="badge bok">✓ Al dia</span>`;if(e==="vencida")return`<span class="badge blate">⚠ Vencida</span>`;return`<span class="badge bwarn">⏱ Pendiente</span>`;}
 function tipoBadge(t){return t==="membresia"?`<span class="tipo-memb">↻ Suscripcion</span>`:`<span class="tipo-cuota">≡ Cuotas</span>`;}
-function metBadge(m){const map={transferencia:{e:"🏦",l:"Transferencia"},tarjeta:{e:"💳",l:"Tarjeta"},flow:{e:"⚡",l:"Flow"},efectivo:{e:"💵",l:"Efectivo"},paypal:{e:"🅿️",l:"PayPal"}};const d=map[m]||{e:"💳",l:esc(m)};return`<span style="font-size:11.5px;color:var(--text2)">${d.e} ${d.l}</span>`;}
+function metBadge(m){const map={transferencia:{e:"🏦",l:"Transferencia"},tarjeta:{e:"💳",l:"Tarjeta"},efectivo:{e:"💵",l:"Efectivo"},paypal:{e:"🅿️",l:"PayPal"}};const d=map[m]||{e:"💳",l:esc(m)};return`<span style="font-size:11.5px;color:var(--text2)">${d.e} ${d.l}</span>`;}
 
 // ═══════════════════════════
 // INIT
@@ -1432,7 +1430,7 @@ function renderRecordatorios(){
 // PAGOS
 // ═══════════════════════════
 function renderPagos(){
-  const icos={transferencia:"🏦",tarjeta:"💳",flow:"⚡",efectivo:"💵",paypal:"🅿️"};
+  const icos={transferencia:"🏦",tarjeta:"💳",efectivo:"💵",paypal:"🅿️"};
   let h="";
   Object.entries(METODOS_PAGO).forEach(([k,v])=>{
     h+=`<div class="pay-card ${v.activo?"active-pay":""}"><div style="display:flex;align-items:center;gap:10px"><div class="pay-ico" style="background:${v.color};color:${v.colorT};font-size:20px">${icos[k]||"💳"}</div><div style="font-size:14px;font-weight:500">${v.nombre}</div></div><div style="font-size:12px;color:var(--text2);line-height:1.5">${v.desc}</div><div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px">${v.proximamente?`<span style="font-size:12px;color:var(--text3)">Próximamente</span>`:`<span style="font-size:12px;color:${v.activo?"var(--green)":"var(--text3)"}">${v.activo?"✓ Activo":"Inactivo"}</span><label class="toggle"><input type="checkbox" ${v.activo?"checked":""} onchange="togglePago('${k}',this.checked)"><span class="toggle-slider"></span></label>`}</div></div>`;
