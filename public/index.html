@@ -9,7 +9,7 @@
 <meta property="og:site_name" content="Vencio">
 <meta property="og:title" content="Vencio — Cobros, mensualidades y cuotas en un solo panel">
 <meta property="og:description" content="Vencio ordena las cuotas y suscripciones de tus clientes, marca cuáles están vencidas y te deja cobrarlas con tu cuenta de Mercado Pago.">
-<meta property="og:image" content="https://vencio-production.up.railway.app/og-image.png">
+<meta property="og:image" content="https://vencio.cl/og-image.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
@@ -944,9 +944,13 @@ html[data-sesion="1"] .lp-solo-visita{display:none!important}
 <div class="overlay" id="modal-cobro-auto">
   <div class="modal" style="width:420px">
     <div class="modal-t">Cobro automático <span class="modal-x" onclick="cerrar('modal-cobro-auto')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span></div>
-    <div id="ca-cargando" style="padding:12px 0;color:var(--text3);font-size:13px">Consultando estado en Mercado Pago...</div>
+    <div id="ca-prov" style="display:none;gap:8px;margin-bottom:14px">
+      <button class="btn btn-sm" id="ca-prov-mp" style="flex:1;padding:7px 10px" onclick="caElegir('mp')">💳 Mercado Pago (CLP)</button>
+      <button class="btn btn-sm" id="ca-prov-pp" style="flex:1;padding:7px 10px" onclick="caElegir('pp')">🅿️ PayPal (USD)</button>
+    </div>
+    <div id="ca-cargando" style="padding:12px 0;color:var(--text3);font-size:13px">Consultando estado...</div>
     <div id="ca-sin-mp" style="display:none">
-      <p style="font-size:13px;color:var(--text3);margin-bottom:12px">Primero conecta tu cuenta de Mercado Pago para poder cobrar a tus clientes.</p>
+      <p style="font-size:13px;color:var(--text3);margin-bottom:12px">Primero conecta tu cuenta de Mercado Pago (clientes en Chile, en pesos) o de PayPal (clientes del extranjero, en dólares) para poder cobrar a tus clientes.</p>
       <button class="btn btn-p" style="width:100%" onclick="cerrar('modal-cobro-auto');navTo(document.querySelector('[onclick*=integraciones]'),'integraciones')">Ir a Integraciones</button>
     </div>
     <div id="ca-sin-tarjeta" style="display:none">
@@ -964,6 +968,24 @@ html[data-sesion="1"] .lp-solo-visita{display:none!important}
       <button class="btn btn-p" style="width:100%" onclick="cobrarAhora()">Generar link de pago</button>
       <p style="font-size:11px;color:var(--text3);margin-top:8px">El cliente debe abrir el link y pagar (Mercado Pago no permite cobrar montos variables sin que el cliente confirme).</p>
     </div>
+    <div id="ca-pp" style="display:none"></div>
+  </div>
+</div>
+
+<div class="overlay" id="modal-pp">
+  <div class="modal" style="width:460px">
+    <div class="modal-t">Conectar PayPal <span class="modal-x" onclick="cerrar('modal-pp')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span></div>
+    <p style="font-size:13px;color:var(--text2);line-height:1.55;margin-bottom:12px">Con tu cuenta de PayPal cobras a clientes del extranjero. PayPal no acepta pesos chilenos, así que estos cobros son en <b>dólares (USD)</b>.</p>
+    <ol style="font-size:12.5px;color:var(--text2);line-height:1.65;padding-left:18px;margin-bottom:14px">
+      <li>Entra a <a href="https://developer.paypal.com/dashboard/applications" target="_blank" rel="noopener" style="color:var(--blue)">developer.paypal.com</a> con tu cuenta de PayPal.</li>
+      <li>En <b>Apps &amp; Credentials</b> elige <b>Live</b> (cobros reales) o <b>Sandbox</b> (pruebas) y crea una app. Los nombres de los menús pueden variar un poco.</li>
+      <li>Copia el <b>Client ID</b> y el <b>Secret</b> de esa app y pégalos aquí. El modo de abajo debe coincidir con el que elegiste.</li>
+    </ol>
+    <div class="fg"><label class="fl">Modo</label><select class="fi" id="pp-modo"><option value="live">Real (cobra dinero de verdad)</option><option value="sandbox">Pruebas (sandbox, sin dinero real)</option></select></div>
+    <div class="fg"><label class="fl">Client ID</label><input class="fi" id="pp-cid" type="text" autocomplete="off" spellcheck="false"></div>
+    <div class="fg"><label class="fl">Secret</label><input class="fi" id="pp-sec" type="password" autocomplete="off" spellcheck="false"></div>
+    <p style="font-size:11.5px;color:var(--text3);line-height:1.5">Tus llaves se guardan cifradas y solo se usan para crear cobros en tu cuenta de PayPal. Puedes desconectar cuando quieras.</p>
+    <div class="ma"><button class="btn" onclick="cerrar('modal-pp')">Cancelar</button><button class="btn btn-p" id="pp-btn" onclick="ppConectar()">Conectar</button></div>
   </div>
 </div>
 
@@ -1047,13 +1069,13 @@ const METODOS_PAGO={
   tarjeta:{nombre:"Tarjeta credito/debito",color:"#EAF3DE",colorT:"#3B6D11",activo:true,desc:"Cobro automatico con tarjeta via Mercado Pago."},
   flow:{nombre:"Flow / Webpay",color:"#FFF0C0",colorT:"#7A5800",activo:true,desc:"El cliente recibe un link y paga con Webpay, MACH u otros."},
   efectivo:{nombre:"Efectivo",color:"#F0E8FF",colorT:"#5A1E91",activo:true,desc:"El pago se registra manualmente al recibir efectivo."},
-  paypal:{nombre:"PayPal",color:"#FCEBEB",colorT:"#A32D2D",activo:false,desc:"Para clientes internacionales."},
+  paypal:{nombre:"PayPal",color:"#FCEBEB",colorT:"#A32D2D",activo:true,desc:"Para clientes del extranjero. Se cobra en dólares (USD) con tu cuenta de PayPal."},
 };
 // Mercado Pago ya está integrado de verdad (ver seccion Integraciones). El resto queda para más adelante.
 const INTEGRACIONES=[
   {id:"mp",nombre:"Mercado Pago",logo:"💳",real:true,desc:"Conecta tu cuenta para cobrar cuotas y suscripciones a tus clientes, con cobro automatico mensual."},
   {id:"flow",nombre:"Flow / Webpay",logo:"⚡",activo:false,desc:"Integracion directa con Transbank. Proximamente.",proximamente:true},
-  {id:"pp",nombre:"PayPal",logo:"🅿️",activo:false,desc:"Genera links PayPal para clientes internacionales. Proximamente.",proximamente:true},
+  {id:"pp",nombre:"PayPal",logo:"🅿️",real:true,desc:"Conecta tu cuenta de PayPal para cobrar en dólares (USD) a tus clientes del extranjero, con cuotas o suscripción mensual."},
   {id:"api",nombre:"API Propia",logo:"🔗",activo:false,desc:"Conecta cualquier sistema externo con la API REST de Vencio. Proximamente.",proximamente:true},
 ];
 const RECORDATORIOS=[
@@ -1422,13 +1444,18 @@ function togglePago(k,val){METODOS_PAGO[k].activo=val;renderPagos();}
 // ═══════════════════════════
 // INTEGRACIONES
 // ═══════════════════════════
-let MP_CONECTADO=false;
+let MP_CONECTADO=false,PP_CONECTADO=false,PP_MODO=null;
 function renderIntegraciones(){
   let h="";
   INTEGRACIONES.forEach(i=>{
     if(i.id==="mp"){
       const on=MP_CONECTADO;
       h+=`<div class="int-card"><div style="font-size:28px;margin-bottom:8px">${i.logo}</div><div style="font-size:14px;font-weight:500;margin-bottom:4px">${esc(i.nombre)}</div><div style="font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:12px">${esc(i.desc)}</div><div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px"><span style="font-size:11.5px;${on?"color:var(--green);font-weight:500":"color:var(--text3)"}">${on?"✓ Conectado":"Sin conectar"}</span><button class="btn ${on?"":"btn-p"} btn-sm" onclick="${on?"mpDesconectar()":"mpConectar()"}">${on?"Desconectar":"Conectar"}</button></div></div>`;
+      return;
+    }
+    if(i.id==="pp"){
+      const on=PP_CONECTADO;
+      h+=`<div class="int-card"><div style="font-size:28px;margin-bottom:8px">${i.logo}</div><div style="font-size:14px;font-weight:500;margin-bottom:4px">${esc(i.nombre)}</div><div style="font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:12px">${esc(i.desc)}</div><div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px"><span style="font-size:11.5px;${on?"color:var(--green);font-weight:500":"color:var(--text3)"}">${on?(PP_MODO==="sandbox"?"✓ Conectado (modo pruebas)":"✓ Conectado"):"Sin conectar"}</span><button class="btn ${on?"":"btn-p"} btn-sm" onclick="${on?"ppDesconectar()":"ppAbrirConectar()"}">${on?"Desconectar":"Conectar"}</button></div></div>`;
       return;
     }
     h+=`<div class="int-card" style="opacity:.6"><div style="font-size:28px;margin-bottom:8px">${i.logo}</div><div style="font-size:14px;font-weight:500;margin-bottom:4px">${esc(i.nombre)}</div><div style="font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:12px">${esc(i.desc)}</div><span style="font-size:11.5px;color:var(--text3)">Proximamente</span></div>`;
@@ -1442,6 +1469,29 @@ function renderIntegraciones(){
 // ═══════════════════════════
 function mpConectar(){if(DEMO||!TOKEN){alert("Inicia sesión con una cuenta real (no la demo) para conectar Mercado Pago.");return;}location.href="/api/mp/conectar?token="+encodeURIComponent(TOKEN);}
 async function mpDesconectar(){if(!confirm("¿Desconectar tu cuenta de Mercado Pago? Las suscripciones activas seguirán cobrando hasta que las canceles desde tu cuenta de Mercado Pago."))return;try{await api("/mp/desconectar","POST",{});MP_CONECTADO=false;renderIntegraciones();mpCargarCuenta();}catch(e){alert(e.message);}}
+// ═══════════════════════════
+// PAYPAL: conectar / desconectar (cada negocio pega las llaves de su propia app de PayPal)
+// ═══════════════════════════
+async function ppCargarEstado(){if(DEMO||!TOKEN)return;try{const e=await api("/pp/estado");PP_CONECTADO=!!e.conectado;PP_MODO=e.modo||null;renderIntegraciones();}catch(e){}}
+function ppAbrirConectar(){
+  if(DEMO||!TOKEN){alert("Inicia sesión con una cuenta real (no la demo) para conectar PayPal.");return;}
+  document.getElementById("pp-cid").value="";document.getElementById("pp-sec").value="";
+  document.getElementById("modal-pp").classList.add("open");
+}
+async function ppConectar(){
+  const cid=document.getElementById("pp-cid").value.trim(),sec=document.getElementById("pp-sec").value.trim(),modo=document.getElementById("pp-modo").value;
+  if(!cid||!sec){alert("Pega el Client ID y el Secret de tu app de PayPal.");return;}
+  const b=document.getElementById("pp-btn");b.disabled=true;b.textContent="Comprobando...";
+  try{
+    const r=await api("/pp/conectar","POST",{clientId:cid,secret:sec,modo});
+    PP_CONECTADO=true;PP_MODO=r.modo;document.getElementById("pp-sec").value="";
+    cerrar("modal-pp");renderIntegraciones();
+    alert(r.modo==="sandbox"?"✓ PayPal conectado en MODO DE PRUEBAS. Los cobros no mueven dinero real.":"✓ Tu cuenta de PayPal quedó conectada.");
+  }catch(e){alert("No se pudo conectar PayPal: "+e.message);}
+  b.disabled=false;b.textContent="Conectar";
+}
+async function ppDesconectar(){if(!confirm("¿Desconectar tu cuenta de PayPal? Las suscripciones activas siguen cobrando en PayPal hasta que las canceles; para cancelarlas desde Vencio, cancélalas antes de desconectar."))return;try{await api("/pp/desconectar","POST",{});PP_CONECTADO=false;PP_MODO=null;renderIntegraciones();}catch(e){alert(e.message);}}
+
 // ═══════════════════════════
 // MERCADO PAGO: estado de la cuenta en vivo
 // ═══════════════════════════
@@ -1494,7 +1544,7 @@ function renderMpCuenta(d,pn){
   document.getElementById(P.cont).innerHTML=h;
 }
 
-async function mpCargarEstado(){if(DEMO||!TOKEN)return;try{const e=await api("/mp/estado");MP_CONECTADO=e.conectado;MP_PROPIETARIO=!!e.propietario;renderIntegraciones();mpCargarCuenta();}catch(e){}}
+async function mpCargarEstado(){if(DEMO||!TOKEN)return;ppCargarEstado();try{const e=await api("/mp/estado");MP_CONECTADO=e.conectado;MP_PROPIETARIO=!!e.propietario;renderIntegraciones();mpCargarCuenta();}catch(e){}}
 async function revisarMP(){
   const p=new URLSearchParams(location.search),q=p.get("mp");if(!q)return;
   const motivo=(p.get("motivo")||"").slice(0,200);
@@ -1738,19 +1788,104 @@ function marcarPagado(){if(clienteDetalle)marcarPagadoId(clienteDetalle.id);cerr
 // ═══════════════════════════
 // COBRO AUTOMÁTICO (Mercado Pago)
 // ═══════════════════════════
+let CA_PROV='mp',CA_REQ=0; // proveedor elegido en el modal de cobro ('mp' = Mercado Pago, 'pp' = PayPal) y contador para ignorar respuestas viejas
 async function abrirCobroAuto(){
   const c=clienteDetalle;if(!c||DEMO||!TOKEN){alert("El cobro automático solo está disponible con una cuenta real (no en la demo).");return;}
   document.getElementById('modal-cobro-auto').classList.add('open');
-  ['ca-cargando','ca-sin-mp','ca-sin-tarjeta','ca-con-tarjeta','ca-cuota'].forEach(id=>document.getElementById(id).style.display='none');
+  // Si hay una sola cuenta conectada se usa esa; si hay las dos, se parte por la del método de pago del cliente y se puede cambiar
+  const pv=document.getElementById('ca-prov');
+  if(MP_CONECTADO&&PP_CONECTADO){pv.style.display='flex';CA_PROV=c.metodoPago==='paypal'?'pp':'mp';}
+  else{pv.style.display='none';CA_PROV=(PP_CONECTADO&&!MP_CONECTADO)?'pp':'mp';}
+  caMostrar();
+}
+function caElegir(p){CA_PROV=p;caMostrar();}
+async function caMostrar(){
+  const c=clienteDetalle;if(!c)return;const mio=++CA_REQ;
+  ['ca-cargando','ca-sin-mp','ca-sin-tarjeta','ca-con-tarjeta','ca-cuota','ca-pp'].forEach(id=>document.getElementById(id).style.display='none');
   document.getElementById('ca-link-generado').style.display='none';
-  document.getElementById('ca-cargando').style.display='';
-  if(!MP_CONECTADO){document.getElementById('ca-cargando').style.display='none';document.getElementById('ca-sin-mp').style.display='';return;}
-  if(c.tipo==='cuotas'){document.getElementById('ca-cargando').style.display='none';document.getElementById('ca-cuota').style.display='';return;}
+  const carg=document.getElementById('ca-cargando');carg.textContent='Consultando estado...';carg.style.display='';
+  [['ca-prov-mp','mp'],['ca-prov-pp','pp']].forEach(([id,k])=>{const b=document.getElementById(id);if(b){b.style.background=CA_PROV===k?'var(--blue-l,#E6F1FB)':'transparent';b.style.fontWeight=CA_PROV===k?'600':'400';}});
+  if(CA_PROV==='pp')return ppRenderCobro(c,mio);
+  if(!MP_CONECTADO){carg.style.display='none';document.getElementById('ca-sin-mp').style.display='';return;}
+  if(c.tipo==='cuotas'){carg.style.display='none';document.getElementById('ca-cuota').style.display='';return;}
   try{
     const r=await api(`/mp/clientes/${c.id}/estado`);
-    document.getElementById('ca-cargando').style.display='none';
+    if(mio!==CA_REQ)return;
+    carg.style.display='none';
     document.getElementById(r.activo?'ca-con-tarjeta':'ca-sin-tarjeta').style.display='';
-  }catch(e){document.getElementById('ca-cargando').textContent='No se pudo consultar: '+e.message;}
+  }catch(e){if(mio===CA_REQ)carg.textContent='No se pudo consultar: '+e.message;}
+}
+
+// ═══════════════════════════
+// COBRO CON PAYPAL (en dólares: PayPal no acepta pesos chilenos)
+// ═══════════════════════════
+const PP_NOTA='<p style="font-size:11px;color:var(--text3);margin-top:8px;line-height:1.5">PayPal no acepta pesos chilenos: este cobro es en dólares (USD). El cliente debe abrir el link y aprobar el pago con su PayPal o su tarjeta.</p>';
+const PP_LINK='<div id="pp-link" style="display:none;margin-top:10px;font-size:12px;word-break:break-all;background:var(--surface2);padding:8px;border-radius:8px"></div>';
+async function ppRenderCobro(c,mio){
+  const carg=document.getElementById('ca-cargando'),box=document.getElementById('ca-pp');
+  if(!PP_CONECTADO){carg.style.display='none';document.getElementById('ca-sin-mp').style.display='';return;}
+  const campo=(txt)=>`<label class="fl">${txt}</label><input type="number" id="pp-monto" class="fi" min="1" step="0.01" placeholder="Ej: 50" style="margin-bottom:12px">`;
+  if(c.tipo==='cuotas'){
+    carg.style.display='none';box.style.display='';
+    box.innerHTML=`${campo('Monto a cobrar (USD)')}<button class="btn btn-p" style="width:100%" onclick="ppCobrar()">Generar link de pago</button>${PP_LINK}${PP_NOTA}<div id="pp-hist" style="margin-top:12px"></div>`;
+    ppCargarCobros(c.id,mio);return;
+  }
+  try{
+    const r=await api(`/pp/clientes/${c.id}/estado`);
+    if(mio!==CA_REQ)return;
+    carg.style.display='none';box.style.display='';
+    if(r.activo){
+      box.innerHTML=`<p style="font-size:13px;color:var(--green);margin-bottom:12px">✓ Este cliente tiene una suscripción activa en PayPal (cobro automático mensual).</p><button class="btn" style="width:100%;color:var(--red);border-color:var(--red-l)" onclick="ppCancelar()">Cancelar suscripción</button>`;
+    }else{
+      const pend=r.estado==='APPROVAL_PENDING'||r.estado==='APPROVED';
+      box.innerHTML=`${pend?'<p style="font-size:12.5px;color:var(--amber);margin-bottom:10px">Hay una suscripción pendiente: el cliente aún no la termina de activar en PayPal. Puedes generar un link nuevo.</p>':'<p style="font-size:13px;color:var(--text3);margin-bottom:12px">Este cliente aún no tiene una suscripción activa. Envíale el link para que la active una sola vez; después PayPal le cobrará automáticamente cada mes.</p>'}${campo('Monto mensual (USD)')}<button class="btn btn-p" style="width:100%" onclick="ppSuscribir()">Generar link de suscripción</button>${PP_LINK}${PP_NOTA}`;
+    }
+  }catch(e){if(mio===CA_REQ)carg.textContent='No se pudo consultar: '+e.message;}
+}
+function ppMostrarLink(url){
+  const d=document.getElementById('pp-link');if(!d)return;
+  d.style.display='';
+  d.innerHTML=`<a href="${esc(url)}" target="_blank" rel="noopener" style="color:var(--blue)">${esc(url)}</a><br><button class="btn-sm" style="margin-top:8px" onclick="navigator.clipboard.writeText('${esc(url)}');this.textContent='¡Copiado!'">Copiar link</button>`;
+}
+function ppMontoValido(){const m=Number(document.getElementById('pp-monto').value);if(!m||m<1){alert('Ingresa un monto válido en dólares (mínimo 1 USD).');return 0;}return m;}
+async function ppCobrar(){
+  const c=clienteDetalle;if(!c)return;const monto=ppMontoValido();if(!monto)return;
+  try{
+    const r=await api(`/pp/clientes/${c.id}/cobrar`,'POST',{monto,subject:`Cobro cuota - ${c.nombre}`});
+    ppMostrarLink(r.url);ppCargarCobros(c.id,CA_REQ);
+  }catch(e){alert('No se pudo generar el link: '+e.message);}
+}
+async function ppSuscribir(){
+  const c=clienteDetalle;if(!c)return;const monto=ppMontoValido();if(!monto)return;
+  try{const r=await api(`/pp/clientes/${c.id}/suscribir`,'POST',{nombre:c.nombre,email:c.email,monto});ppMostrarLink(r.url);}
+  catch(e){alert('No se pudo generar el link: '+e.message);}
+}
+async function ppCancelar(){
+  const c=clienteDetalle;if(!c)return;
+  if(!confirm('¿Cancelar el cobro automático mensual de '+c.nombre+' en PayPal?'))return;
+  try{await api(`/pp/clientes/${c.id}/cancelar-suscripcion`,'POST',{});alert('Suscripción cancelada.');cerrar('modal-cobro-auto');}catch(e){alert('No se pudo cancelar: '+e.message);}
+}
+// Lista los últimos cobros en USD de este cliente. Los pendientes tienen "Revisar", que consulta a PayPal por si ya pagó.
+async function ppCargarCobros(clienteId,mio){
+  const h=document.getElementById('pp-hist');if(!h)return;
+  try{
+    const rows=await api(`/pp/clientes/${clienteId}/cobros`);
+    if(mio!==CA_REQ||!rows.length)return;
+    const est={pagado:['Pagado','var(--green)'],pendiente:['Pendiente','var(--amber)'],fallido:['Falló','var(--red)']};
+    h.innerHTML=`<div style="font-size:12px;font-weight:500;margin-bottom:6px">Últimos cobros con PayPal</div>`+rows.map(x=>{
+      const e=est[x.estado]||[x.estado,'var(--text3)'];
+      return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12.5px;padding:5px 0;border-top:.5px solid var(--border)"><span>${new Date(x.created_at).toLocaleDateString('es-CL')} · US$ ${esc(String(x.monto))}</span><span style="display:flex;align-items:center;gap:8px"><span style="color:${e[1]};font-weight:500">${esc(e[0])}</span>${x.estado==='pendiente'?`<button class="btn-sm" onclick="ppRevisar('${esc(x.order_id)}',${Number(clienteId)})">Revisar</button>`:''}</span></div>`;
+    }).join('')+`<p style="font-size:11px;color:var(--text3);margin-top:6px;line-height:1.5">Cuando un cobro figure como Pagado, pulsa "Marcar pagado" en la ficha del cliente para registrar la cuota.</p>`;
+  }catch(e){}
+}
+async function ppRevisar(orderId,clienteId){
+  try{
+    const r=await api(`/pp/cobros/${encodeURIComponent(orderId)}/revisar`,'POST',{});
+    if(r.estado==='pagado')alert('✓ PayPal confirmó el pago.');
+    else if(r.estado==='fallido')alert('PayPal no pudo completar este pago.');
+    else alert('Todavía no hay pago: el cliente no ha aprobado el link.');
+    ppCargarCobros(clienteId,CA_REQ);
+  }catch(e){alert('No se pudo revisar: '+e.message);}
 }
 async function invitarRegistroTarjeta(){
   const c=clienteDetalle;if(!c)return;
