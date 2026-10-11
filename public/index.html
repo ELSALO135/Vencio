@@ -785,6 +785,10 @@ html[data-sesion="1"] .lp-solo-visita{display:none!important}
         </div>
         <div class="metrics" id="gas-metricas"></div>
         <div class="card card-pad" style="margin-top:1rem"><div style="font-size:14px;font-weight:500;margin-bottom:10px">En qué se gasta (este mes)</div><div id="gas-cats"></div></div>
+        <div class="card card-pad" style="margin-top:1rem">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:6px"><div><div style="font-size:14px;font-weight:500">Cierre de saldo: cuánto salió</div><div style="font-size:12px;color:var(--text3);margin-top:2px">Anota el saldo de tu cuenta y Vencio calcula cuánto dinero salió desde el cierre anterior.</div></div><button class="btn" onclick="abrirModalSaldo()">Registrar saldo</button></div>
+          <div id="sal-aviso"></div><div class="metrics" id="sal-metricas" style="margin:10px 0"></div><div id="sal-lista"></div>
+        </div>
         <div class="card card-pad" style="margin-top:1rem"><div style="font-size:14px;font-weight:500;margin-bottom:10px">Últimos gastos</div><div id="gas-lista"></div></div>
       </div>
 
@@ -1027,6 +1031,17 @@ html[data-sesion="1"] .lp-solo-visita{display:none!important}
   </div>
 </div>
 
+<div class="overlay" id="modal-saldo">
+  <div class="modal" style="width:440px">
+    <div class="modal-t">Registrar saldo <span class="modal-x" onclick="cerrar('modal-saldo')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span></div>
+    <div class="frow"><div class="fg"><label class="fl">Empresa</label><select class="fi" id="s-empresa" onchange="sugerirEntradas()"></select></div><div class="fg"><label class="fl">Cuenta</label><select class="fi" id="s-cuenta" onchange="sugerirEntradas()"><option>Mercado Pago</option><option>Banco</option><option>Otra</option></select></div></div>
+    <div class="frow"><div class="fg"><label class="fl">Fecha</label><input class="fi" id="s-fecha" type="date" onchange="sugerirEntradas()"></div><div class="fg"><label class="fl">Saldo actual (CLP)</label><input class="fi" id="s-monto" type="number" min="0" placeholder="1250000"></div></div>
+    <div class="fg"><label class="fl">Entradas desde el cierre anterior (CLP)</label><input class="fi" id="s-entradas" type="number" min="0" placeholder="0"><div id="s-hint" style="font-size:11.5px;color:var(--text3);margin-top:4px;line-height:1.5"></div></div>
+    <div class="fg"><label class="fl">Nota (opcional)</label><input class="fi" id="s-nota" type="text" maxlength="120" placeholder="Ej: cierre del turno noche"></div>
+    <div class="ma"><button class="btn" onclick="cerrar('modal-saldo')">Cancelar</button><button class="btn btn-p" onclick="agregarSaldo()">Guardar saldo</button></div>
+  </div>
+</div>
+
 <div class="overlay" id="modal-link">
   <div class="modal" style="width:360px">
     <div class="modal-t">Enviar link de cobro <span class="modal-x" onclick="cerrar('modal-link')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span></div>
@@ -1071,6 +1086,8 @@ const CLIENTES=[
   {id:8,nombre:"Paula Castillo",rut:"17.890.123-6",email:"paula@gmail.com",telefono:"+56 9 1890 1234",empresa:4,montoCuota:150000,cuotasPagadas:3,cuotasTotal:6,proximoVenc:"2026-06-08",estado:"pendiente",tipoVenta:"servicio",tipo:"membresia",metodoPago:"efectivo",historial:[{fecha:"2026-03-31",monto:150000,metodo:"efectivo"},{fecha:"2026-04-30",monto:150000,metodo:"efectivo"}],notas:[]},
 ];
 const GASTOS=[];
+const SALDOS=[];
+let MP_SERIE=[];
 const VENTAS=[
   {id:1,empresa:1,cliente:"Ana Torres",concepto:"Cuota mensual",tipo:"cuota",monto:320000,costo:180000,fecha:"2026-04-30",metodoPago:"transferencia"},
   {id:2,empresa:1,cliente:"Diego Vega",concepto:"Suscripcion premium",tipo:"membresia",monto:540000,costo:210000,fecha:"2026-05-10",metodoPago:"tarjeta"},
@@ -1120,13 +1137,13 @@ async function api(path,method='GET',body){
 }
 function guardar(){
   if(DEMO||!TOKEN)return;clearTimeout(saveT);
-  saveT=setTimeout(()=>api('/state','PUT',{empresas:EMPRESAS,clientes:CLIENTES,ventas:VENTAS,gastos:GASTOS,notifs:NOTIFS,moderadores:MODERADORES,config:CONFIG}).catch(e=>{console.error('No se pudo guardar:',e);alert('No se pudo guardar: '+e.message);}),400);
+  saveT=setTimeout(()=>api('/state','PUT',{empresas:EMPRESAS,clientes:CLIENTES,ventas:VENTAS,gastos:GASTOS,saldos:SALDOS,notifs:NOTIFS,moderadores:MODERADORES,config:CONFIG}).catch(e=>{console.error('No se pudo guardar:',e);alert('No se pudo guardar: '+e.message);}),400);
 }
 function entrar(user,estado,plan){
   if(user){CONFIG.nombre=user.nombre;CONFIG.iniciales=user.iniciales||CONFIG.iniciales;if(user.email)document.getElementById('cfg-email').value=user.email;}
   if(estado){
     const r=(a,n)=>{a.length=0;a.push(...(n||[]));};
-    r(EMPRESAS,estado.empresas);r(CLIENTES,estado.clientes);r(VENTAS,estado.ventas);r(GASTOS,estado.gastos);r(NOTIFS,estado.notifs);r(MODERADORES,estado.moderadores);
+    r(EMPRESAS,estado.empresas);r(CLIENTES,estado.clientes);r(VENTAS,estado.ventas);r(GASTOS,estado.gastos);r(SALDOS,estado.saldos);r(NOTIFS,estado.notifs);r(MODERADORES,estado.moderadores);
     if(estado.config)Object.assign(CONFIG,estado.config);
   }
   if(plan)CONFIG.plan=plan;
@@ -1538,6 +1555,7 @@ async function mpCargarCuenta(forzar,pn){
 }
 function renderMpCuenta(d,pn){
   pn=pn||"cuenta";const P=MP_PAN[pn];
+  if(pn!=="propia")MP_SERIE=d.serie||[];
   const c=d.cuenta,r=d.resumen,s=d.saldo,m=d.moneda;
   const met=(lbl,val,sub)=>`<div class="metric"><div class="m-lbl">${lbl}</div><div class="m-val" style="font-size:21px">${val}</div><div class="m-sub" style="color:var(--text3)">${sub||"&nbsp;"}</div></div>`;
   let tipo="";
@@ -1769,11 +1787,69 @@ function borrarGasto(id){
   if(!confirm("¿Borrar este gasto?"))return;
   const i=GASTOS.findIndex(g=>g.id===id);if(i>=0)GASTOS.splice(i,1);renderAll();
 }
+function saldosCalculados(){
+  // Por cada empresa+cuenta, ordenados por fecha: salió = saldo anterior + entradas − saldo actual
+  const grupos={};
+  [...SALDOS].sort((a,b)=>a.fecha.localeCompare(b.fecha)||a.id-b.id).forEach(x=>{(grupos[x.empresa+"|"+x.cuenta]=grupos[x.empresa+"|"+x.cuenta]||[]).push(x);});
+  const out=[];
+  Object.values(grupos).forEach(arr=>arr.forEach((x,i)=>{const prev=i?arr[i-1]:null;out.push({...x,prev,salio:prev?prev.monto+x.entradas-x.monto:null});}));
+  return out.sort((a,b)=>b.fecha.localeCompare(a.fecha)||b.id-a.id);
+}
+function sugerirEntradas(){
+  const hint=document.getElementById("s-hint"),inp=document.getElementById("s-entradas");if(!hint)return;
+  const emp=parseInt(document.getElementById("s-empresa").value),cuenta=document.getElementById("s-cuenta").value,fecha=document.getElementById("s-fecha").value;
+  const prev=SALDOS.filter(x=>x.empresa===emp&&x.cuenta===cuenta&&x.fecha<=fecha).sort((a,b)=>b.fecha.localeCompare(a.fecha)||b.id-a.id)[0];
+  if(!prev){hint.textContent="Este será el primer saldo de esta cuenta: queda como punto de partida y no calcula salidas todavía.";inp.value="";return;}
+  let txt="Cierre anterior: "+fmtF(prev.fecha)+" con saldo "+fmt(prev.monto)+". Anota aquí todo el dinero que entró a la cuenta desde entonces.";
+  if(cuenta==="Mercado Pago"&&MP_CONECTADO&&MP_SERIE.length){
+    const dias=MP_SERIE.map(x=>x.dia);
+    if(dias[0]<=prev.fecha){
+      const sug=MP_SERIE.filter(x=>x.dia>prev.fecha&&x.dia<=fecha).reduce((s,x)=>s+x.total,0);
+      inp.value=sug;txt+=" Sugerido desde Mercado Pago: "+fmt(sug)+" (monto bruto, antes de comisiones; puedes corregirlo). No incluye otros ingresos como depósitos o transferencias.";
+    }else txt+=" Mercado Pago no cubre todo ese período; escribe las entradas a mano.";
+  }
+  hint.textContent=txt;
+}
+function abrirModalSaldo(){
+  document.getElementById("s-empresa").innerHTML=EMPRESAS.map(e=>`<option value="${e.id}">${esc(e.nombre)}</option>`).join("");
+  document.getElementById("s-monto").value="";document.getElementById("s-entradas").value="";document.getElementById("s-nota").value="";document.getElementById("s-fecha").value=gHoy();
+  sugerirEntradas();document.getElementById("modal-saldo").classList.add("open");
+}
+function agregarSaldo(){
+  const monto=Math.round(Number(document.getElementById("s-monto").value)),ent=Math.round(Number(document.getElementById("s-entradas").value)||0),fecha=document.getElementById("s-fecha").value;
+  if(document.getElementById("s-monto").value===""||!(monto>=0)){alert("Escribe el saldo actual de la cuenta.");return;}
+  if(!(ent>=0)){alert("Las entradas no pueden ser negativas.");return;}
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(fecha)){alert("Elige la fecha del saldo.");return;}
+  const id=SALDOS.reduce((m,g)=>Math.max(m,g.id||0),0)+1;
+  SALDOS.push({id,empresa:parseInt(document.getElementById("s-empresa").value)||(EMPRESAS[0]&&EMPRESAS[0].id)||1,cuenta:document.getElementById("s-cuenta").value,fecha,monto,entradas:ent,nota:document.getElementById("s-nota").value.trim().slice(0,120)});
+  cerrar("modal-saldo");renderAll();
+}
+function borrarSaldo(id){if(!confirm("¿Borrar este cierre de saldo?"))return;const i=SALDOS.findIndex(x=>x.id===id);if(i>=0)SALDOS.splice(i,1);renderAll();}
+function renderSaldos(){
+  const cont=document.getElementById("sal-lista");if(!cont)return;
+  const f=document.getElementById("gas-filtro"),fv=f?f.value:"todas";
+  const calc=saldosCalculados().filter(x=>fv==="todas"||String(x.empresa)===fv);
+  const hoy=gHoy(),mes=hoy.slice(0,7);
+  const sal=x=>x.salio!=null&&x.salio>0?x.salio:0;
+  const sHoy=calc.filter(x=>x.fecha===hoy).reduce((s,x)=>s+sal(x),0),sMes=calc.filter(x=>x.fecha.slice(0,7)===mes).reduce((s,x)=>s+sal(x),0);
+  const aviso=document.getElementById("sal-aviso");
+  if(aviso)aviso.innerHTML=(SALDOS.length&&!SALDOS.some(x=>x.fecha===hoy))?`<div style="font-size:12.5px;padding:8px 12px;border-radius:var(--r);background:var(--amber-l);color:var(--amber)">Todavía no registras el saldo de hoy. Anótalo para saber cuánto salió.</div>`:"";
+  const m=(lbl,val,sub)=>`<div class="metric"><div class="m-lbl">${lbl}</div><div class="m-val" style="font-size:17px">${fmt(val)}</div><div class="m-sub" style="color:var(--text3)">${sub}</div></div>`;
+  document.getElementById("sal-metricas").innerHTML=calc.length?m("Salió hoy",sHoy,"Según cierres de hoy")+m("Salió este mes",sMes,"Suma de los cierres del mes"):"";
+  cont.innerHTML=calc.length?calc.slice(0,60).map(x=>{
+    let det;
+    if(x.salio==null)det=`<span style="color:var(--text3)">Saldo inicial · sin cálculo</span>`;
+    else if(x.salio<0)det=`<span style="color:var(--amber)" title="Entró más dinero del que anotaste en las entradas">Faltan entradas (diferencia ${fmt(-x.salio)})</span>`;
+    else det=`<span style="color:var(--red);font-weight:500">Salió ${fmt(x.salio)}</span>`;
+    const emp=EMPRESAS.find(e=>e.id===x.empresa);
+    return `<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:.5px solid var(--border)"><div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:500">${esc(x.cuenta)} · saldo ${fmt(x.monto)}${x.nota?` <span style="font-weight:400;color:var(--text2)">· ${esc(x.nota)}</span>`:""}</div><div style="font-size:12px;color:var(--text3)">${fmtF(x.fecha)}${emp?" · "+esc(emp.nombre):""}${x.prev?` · desde ${fmtF(x.prev.fecha)}: ${fmt(x.prev.monto)} + entradas ${fmt(x.entradas)}`:""}</div></div><div style="font-size:13px;text-align:right">${det}</div><button class="btn btn-sm" onclick="borrarSaldo(${x.id})" title="Borrar" aria-label="Borrar cierre">✕</button></div>`;}).join(""):`<div style="font-size:13px;color:var(--text3)">Aún no hay cierres. Registra el saldo de hoy como punto de partida; desde el siguiente cierre se calculará cuánto salió.</div>`;
+}
 function renderGastos(){
   const sel=document.getElementById("gas-filtro");if(!sel)return;
   const prev=sel.value||"todas";
   sel.innerHTML='<option value="todas">Todas las empresas</option>'+EMPRESAS.map(e=>`<option value="${e.id}">${esc(e.nombre)}</option>`).join("");
   sel.value=[...sel.options].some(o=>o.value===prev)?prev:"todas";
+  renderSaldos();
   const lista=GASTOS.filter(g=>sel.value==="todas"||String(g.empresa)===sel.value);
   const hoy=gHoy(),lunes=gLunes(),mes=hoy.slice(0,7);
   const sum=a=>a.reduce((s,g)=>s+g.monto,0);
