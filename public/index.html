@@ -760,6 +760,7 @@ html[data-sesion="1"] .lp-solo-visita{display:none!important}
       <!-- GRAFICOS -->
       <div class="sec" id="s-grafico">
         <div class="sec-hdr"><div class="sec-hdr-ico" style="background:#E6F1FB"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#185FA5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 16l4-4 4 4 4-8"/></svg></div><div class="sec-hdr-txt"><h2>Análisis financiero</h2><p>Gráficos de rendimiento y evolución de cobros</p></div></div>
+        <div id="mp-graf" style="margin-bottom:1.5rem"></div>
         <div class="metrics" id="metrics-row2"></div>
         <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:16px;margin-bottom:1.5rem">
           <div class="card card-pad"><div style="font-size:13.5px;font-weight:500;margin-bottom:1rem">Cobrado vs Pendiente (últimos 6 meses)</div><canvas id="chartBarras" height="180"></canvas></div>
@@ -1520,12 +1521,13 @@ async function ppDesconectar(){if(!confirm("¿Desconectar tu cuenta de PayPal? L
 let MP_PROPIETARIO=false;
 const MP_PAN={
   cuenta:{cont:"mp-cuenta",ruta:"/mp/cuenta",tit:"Tu cuenta de Mercado Pago",sub:"",dias:30,req:0},
+  graf:{cont:"mp-graf",ruta:"/mp/cuenta",tit:"Tus ingresos reales en Mercado Pago",sub:"Datos leídos directamente de tu cuenta conectada",dias:30,req:0},
   propia:{cont:"mp-propia",ruta:"/mp/mi-cuenta",tit:"Mi cuenta de Mercado Pago",sub:"La cuenta dueña de Vencio. Solo la ves tú.",dias:30,req:0}
 };
 const MP_ESTADOS={approved:["Aprobado","green"],pending:["Pendiente","amber"],in_process:["En proceso","amber"],authorized:["Autorizado","amber"],rejected:["Rechazado","red"],cancelled:["Cancelado","red"],refunded:["Reembolsado","red"],charged_back:["Contracargo","red"],in_mediation:["En disputa","red"]};
 function mpFmt(n,moneda){return(!moneda||moneda==="CLP")?fmt(n):esc(moneda)+" "+Math.round(n).toLocaleString("es-CL");}
 async function mpCargarCuenta(forzar,pn){
-  if(!pn){mpCargarCuenta(forzar,"cuenta");if(MP_PROPIETARIO||document.getElementById("mp-propia").innerHTML)mpCargarCuenta(forzar,"propia");return;}
+  if(!pn){if(MP_CONECTADO)mpCargarCuenta(forzar,"graf");mpCargarCuenta(forzar,"cuenta");if(MP_PROPIETARIO||document.getElementById("mp-propia").innerHTML)mpCargarCuenta(forzar,"propia");return;}
   const p=MP_PAN[pn],cont=document.getElementById(p.cont);if(!cont)return;
   const activo=pn==="propia"?MP_PROPIETARIO:MP_CONECTADO;
   if(DEMO||!TOKEN||!activo){p.req++;cont.innerHTML="";return;}
@@ -1663,7 +1665,9 @@ function eliminarMod(id){if(confirm("Eliminar?")){ const idx=MODERADORES.findInd
 // ═══════════════════════════
 // GRAFICOS
 // ═══════════════════════════
+let MP_GRAF_T=0;
 function renderGraficos(){
+  if(MP_CONECTADO&&Date.now()-MP_GRAF_T>30000){MP_GRAF_T=Date.now();mpCargarCuenta(false,"graf");}
   const cobrado=CLIENTES.reduce((s,c)=>s+c.historial.reduce((a,h)=>a+h.monto,0),0);
   const pending=CLIENTES.filter(c=>c.estado!=="al día").reduce((s,c)=>s+c.montoCuota,0);
   const avg=CLIENTES.length?Math.round(CLIENTES.reduce((s,c)=>s+calcScore(c),0)/CLIENTES.length):"—";
