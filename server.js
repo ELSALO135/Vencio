@@ -67,7 +67,7 @@ const auth = (req, res, next) => {
 // ivaPorc: % de IVA con el que parte la cuenta nueva. Lo elige el usuario en el registro según su país (el
 // IVA varía por país), y queda guardado en su config para que no todas las cuentas partan asumiendo Chile.
 const estadoInicial = (empresa, ivaPorc) => ({
-  empresas: [{ id: 1, nombre: empresa || 'Mi Empresa' }], clientes: [], ventas: [], gastos: [], notifs: [], moderadores: [],
+  empresas: [{ id: 1, nombre: empresa || 'Mi Empresa' }], clientes: [], ventas: [], gastos: [], saldos: [], notifs: [], moderadores: [],
   config: { ivaPorc: Number.isFinite(ivaPorc) && ivaPorc >= 0 && ivaPorc <= 100 ? ivaPorc : 19 },
 });
 
@@ -104,6 +104,8 @@ const validarEstado = e => {
     if (!Array.isArray(c.notas) || c.notas.some(n => !esObj(n))) return 'Notas inválidas';
   }
   if (e.ventas.some(v => !esObj(v) || !esNum(v.monto) || !esNum(v.costo))) return 'Datos de ventas inválidos';
+  if (e.saldos.length > 5000) return 'Demasiados cierres de saldo registrados (máximo 5000)';
+  if (e.saldos.some(g => !esObj(g) || !esNum(g.id) || !esNum(g.monto) || g.monto < 0 || !esNum(g.entradas) || g.entradas < 0 || !/^\d{4}-\d{2}-\d{2}$/.test(String(g.fecha || '')))) return 'Datos de cierres de saldo inválidos';
   if (e.gastos.length > 5000) return 'Demasiados gastos registrados (máximo 5000)';
   if (e.gastos.some(g => !esObj(g) || !esNum(g.id) || !esNum(g.monto) || g.monto < 0 || !/^\d{4}-\d{2}-\d{2}$/.test(String(g.fecha || '')))) return 'Datos de gastos inválidos';
   return null;
@@ -227,6 +229,7 @@ app.put('/api/state', auth, async (req, res) => {
     for (const k of ['empresas', 'clientes', 'ventas', 'notifs', 'moderadores']) estado[k] = Array.isArray(b[k]) ? b[k] : [];
     // Los gastos son nuevos: si una pestaña antigua guarda sin enviarlos, se conservan los que ya había (no se borran).
     const previo = (await pool.query('SELECT estado FROM user_data WHERE user_id=$1', [req.userId])).rows[0];
+    estado.saldos = Array.isArray(b.saldos) ? b.saldos : ((previo && previo.estado && Array.isArray(previo.estado.saldos)) ? previo.estado.saldos : []);
     estado.gastos = Array.isArray(b.gastos) ? b.gastos : ((previo && previo.estado && Array.isArray(previo.estado.gastos)) ? previo.estado.gastos : []);
     const { plan: _ignorado, ...cfg } = (b.config && typeof b.config === 'object' && !Array.isArray(b.config)) ? b.config : {};
     estado.config = cfg;
