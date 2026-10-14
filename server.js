@@ -889,6 +889,46 @@ app.get('/api/mp/cuenta', auth, async (req, res) => {
   });
 });
 
+// ── Prueba de lectura de reportes de Mercado Pago (saldo y retiros) ──
+// Mercado Pago documenta dos reportes por API que traen saldo y retiros ("liberaciones" y "dinero en cuenta"), pero NO dice si
+// funcionan con el token que recibe una app por OAuth. Esta ruta lo comprueba con la cuenta conectada y devuelve, por cada llamada,
+// solo el código HTTP y el mensaje de Mercado Pago (nunca el token ni el contenido de los reportes).
+// Con ?generar=1 además pide un reporte de los últimos 7 días (inofensivo; se arma en el lado de Mercado Pago y queda en su lista).
+const mpPruebaUlt = new Map(); // userId -> última vez que pidió generar, para no abusar
+const mpSonda = async (metodo, ruta, token, body) => {
+  try {
+    const r = await fetch(`https://api.mercadopago.com${ruta}`, { method: metodo, signal: AbortSignal.timeout(10000),
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: body ? JSON.stringify(body) : undefined });
+    const txt = await r.text(); let d = null; try { d = JSON.parse(txt); } catch (e) {}
+    const msg = d && (d.message || d.error || d.cause) ? String(d.message || d.error || JSON.stringify(d.cause)).slice(0, 160) : null;
+    const claves = d && typeof d === 'object' && !Array.isArray(d) ? Object.keys(d).slice(0, 12) : null;
+    const cant = Array.isArray(d) ? d.length : (d && Array.isArray(d.results) ? d.results.length : null);
+    return { ok: r.ok, http: r.status, mensaje: msg, campos: claves, cantidad: cant };
+  } catch (e) { return { ok: false, http: 0, mensaje: e.name === 'TimeoutError' ? 'tardó demasiado en responder' : e.message }; }
+};
+app.get('/api/mp/reportes-prueba', auth, async (req, res) => {
+  try {
+    const token = await mpTokenDeUsuario(req.userId);
+    if (!token) return res.status(404).json({ error: 'Tu cuenta de Mercado Pago no está conectada (o venció). Vuelve a conectarla.' });
+    const pruebas = [
+      ['Reporte de liberaciones: configuración', 'GET', '/v1/account/release_report/config'],
+      ['Reporte de dinero en cuenta: configuración', 'GET', '/v1/account/settlement_report/config'],
+      ['Reporte de liberaciones: lista', 'GET', '/v1/account/release_report/list'],
+      ['Reporte de dinero en cuenta: lista', 'GET', '/v1/account/settlement_report/list']];
+    if (req.query.generar === '1') {
+      const ult = mpPruebaUlt.get(req.userId) || 0;
+      if (Date.now() - ult < 60000) return res.status(429).json({ error: 'Espera un minuto antes de pedir otro reporte de prueba.' });
+      mpPruebaUlt.set(req.userId, Date.now());
+      const fin = new Date(), ini = new Date(Date.now() - 7 * 86400000);
+      const rango = { begin_date: ini.toISOString(), end_date: fin.toISOString() };
+      pruebas.push(['Pedir reporte de liberaciones (7 días)', 'POST', '/v1/account/release_report', rango],
+        ['Pedir reporte de dinero en cuenta (7 días)', 'POST', '/v1/account/settlement_report', rango]);
+    }
+    const resultados = await Promise.all(pruebas.map(async ([nombre, metodo, ruta, body]) => ({ nombre, ruta, metodo, ...(await mpSonda(metodo, ruta, token, body)) })));
+    res.json({ momento: new Date().toISOString(), resultados });
+  } catch (e) { fail(res, e, 'Error al probar los reportes de Mercado Pago'); }
+});
+
 // ── Tu PROPIA cuenta de Mercado Pago (la dueña de la app de Vencio) ──
 // Mercado Pago no deja que una cuenta se autorice a sí misma por OAuth, pero para tu cuenta no hace falta: ya tienes su token
 // (MP_ACCESS_TOKEN). Solo la ve el usuario cuyo correo está en la variable ADMIN_EMAIL; para todos los demás responde 403.
