@@ -872,6 +872,7 @@ html[data-sesion="1"] .lp-solo-visita{display:none!important}
 
         <div id="mp-propia" style="margin-top:1.75rem"></div>
         <div id="mp-cuenta" style="margin-top:1.75rem"></div>
+        <div id="mp-prueba" style="margin-top:1.25rem"></div>
 
         <div style="margin-top:1.75rem;padding-top:1.5rem;border-top:.5px solid var(--border)">
           <h3 style="font-size:14px;font-weight:600;margin-bottom:4px">Mis tiendas conectadas</h3>
@@ -1508,6 +1509,20 @@ function renderIntegraciones(){
 // MERCADO PAGO: conectar / desconectar / estado
 // ═══════════════════════════
 function mpConectar(){if(DEMO||!TOKEN){alert("Inicia sesión con una cuenta real (no la demo) para conectar Mercado Pago.");return;}if(!confirm("Mercado Pago va a conectar la cuenta en la que ya tienes sesión abierta en este navegador, sin pedirte usuario ni clave.\n\nSi quieres conectar OTRA cuenta (por ejemplo, la de otra persona o la de tu negocio), cancela, abre Vencio en una ventana de incógnito (o cierra sesión en mercadopago.cl) y vuelve a intentar.\n\n¿Continuar con la cuenta actual?"))return;location.href="/api/mp/conectar?token="+encodeURIComponent(TOKEN);}
+// Prueba de lectura de saldo y retiros (reportes de Mercado Pago): muestra, por cada llamada, si Mercado Pago la permitió o no.
+function mpPruebaRender(){
+  const c=document.getElementById("mp-prueba");if(!c)return;
+  if(!MP_CONECTADO){c.innerHTML="";return;}
+  c.innerHTML=`<div class="card" style="padding:1rem 1.25rem"><div style="font-size:13.5px;font-weight:600;margin-bottom:3px">Probar lectura de saldo y retiros</div><div style="font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:10px">Mercado Pago tiene reportes con el saldo y los retiros de dinero. Esta prueba revisa si tu cuenta conectada los deja leer desde Vencio. No modifica tu dinero.</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-sm" onclick="mpProbarReportes(false)">Revisar permisos</button><button class="btn btn-sm" onclick="mpProbarReportes(true)">Pedir reporte de prueba (7 días)</button></div><div id="mp-prueba-res" style="margin-top:10px;font-size:12px"></div></div>`;
+}
+async function mpProbarReportes(generar){
+  const r=document.getElementById("mp-prueba-res");if(!r)return;
+  r.innerHTML='<span style="color:var(--text3)">Consultando a Mercado Pago…</span>';
+  try{
+    const d=await api("/mp/reportes-prueba"+(generar?"?generar=1":""));
+    r.innerHTML=d.resultados.map(x=>`<div style="padding:6px 0;border-top:.5px solid var(--border)"><span style="font-weight:500;color:${x.ok?"var(--green)":"var(--red)"}">${x.ok?"✓ Permitido":"✕ No permitido"}</span> · ${esc(x.nombre)} <span style="color:var(--text3)">(código ${x.http})</span>${x.mensaje?`<div style="color:var(--text3);margin-top:2px">Mercado Pago dijo: ${esc(x.mensaje)}</div>`:""}${x.ok&&x.cantidad!=null?`<div style="color:var(--text3);margin-top:2px">Reportes en la lista: ${x.cantidad}</div>`:""}</div>`).join("")+'<div style="color:var(--text3);margin-top:8px">Hora de la prueba: '+esc(new Date(d.momento).toLocaleString("es-CL"))+'</div>';
+  }catch(e){r.innerHTML=`<span style="color:var(--red)">${esc(e.message)}</span>`;}
+}
 async function mpDesconectar(){if(!confirm("¿Desconectar tu cuenta de Mercado Pago? Las suscripciones activas seguirán cobrando hasta que las canceles desde tu cuenta de Mercado Pago."))return;try{await api("/mp/desconectar","POST",{});MP_CONECTADO=false;renderIntegraciones();mpCargarCuenta();}catch(e){alert(e.message);}}
 // ═══════════════════════════
 // PAYPAL: conectar / desconectar (cada negocio pega las llaves de su propia app de PayPal)
