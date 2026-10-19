@@ -730,7 +730,10 @@ app.get('/api/mp/callback', async (req, res) => {
     await pool.query(
       `INSERT INTO mp_cuentas(user_id,mp_user_id,access_token,refresh_token,public_key,expires_at)
        VALUES($1,$2,$3,$4,$5,NOW() + ($6||' seconds')::interval)
-       ON CONFLICT(user_id) DO UPDATE SET mp_user_id=$2,access_token=$3,refresh_token=$4,public_key=$5,expires_at=NOW() + ($6||' seconds')::interval`,
+       ON CONFLICT(user_id) DO UPDATE SET
+         empresa_id=CASE WHEN mp_cuentas.mp_user_id IS NOT DISTINCT FROM EXCLUDED.mp_user_id THEN mp_cuentas.empresa_id ELSE NULL END,
+         empresa_decidida=CASE WHEN mp_cuentas.mp_user_id IS NOT DISTINCT FROM EXCLUDED.mp_user_id THEN mp_cuentas.empresa_decidida ELSE FALSE END,
+         mp_user_id=$2,access_token=$3,refresh_token=$4,public_key=$5,expires_at=NOW() + ($6||' seconds')::interval`,
       [userId, t.user_id, encrypt(t.access_token), encrypt(t.refresh_token), t.public_key, t.expires_in]);
     olvidarCuentaMP(userId);
     res.redirect(303, '/?mp=ok');
@@ -944,8 +947,31 @@ app.get('/api/mp/mi-cuenta', auth, async (req, res) => {
 });
 
 app.get('/api/mp/estado', auth, async (req, res) => {
-  try { res.json({ conectado: !!(await pool.query('SELECT 1 FROM mp_cuentas WHERE user_id=$1', [req.userId])).rowCount, propietario: await esPropietario(req.userId) }); }
-  catch (e) { fail(res, e, 'Error al consultar Mercado Pago'); }
+  try {
+    const f = (await pool.query('SELECT empresa_id, empresa_decidida FROM mp_cuentas WHERE user_id=$1', [req.userId])).rows[0];
+    res.json({ conectado: !!f, propietario: await esPropietario(req.userId),
+      empresaId: f && f.empresa_id != null ? f.empresa_id : null, decidida: !!(f && f.empresa_decidida) });
+  } catch (e) { fail(res, e, 'Error al consultar Mercado Pago'); }
+});
+
+// El cliente elige (si quiere) a qué empresa suya pertenece su cuenta de Mercado Pago. empresaId null = "ninguna" (cuenta personal).
+// Solo se acepta una empresa que exista en SU estado: nadie puede asociar la cuenta a una empresa de otro usuario ni a un id inventado.
+app.post('/api/mp/empresa', auth, async (req, res) => {
+  try {
+    const raw = req.body && req.body.empresaId;
+    let empresaId = null;
+    if (raw !== null && raw !== undefined && raw !== '') {
+      empresaId = Number(raw);
+      if (!Number.isInteger(empresaId) || empresaId < 1) return res.status(400).json({ error: 'Empresa no válida' });
+      const est = (await pool.query('SELECT estado FROM user_data WHERE user_id=$1', [req.userId])).rows[0];
+      const lista = est && est.estado && Array.isArray(est.estado.empresas) ? est.estado.empresas : [];
+      if (!lista.some(e => Number(e.id) === empresaId)) return res.status(400).json({ error: 'Esa empresa no existe en tu cuenta' });
+    }
+    const r = await pool.query('UPDATE mp_cuentas SET empresa_id=$1, empresa_decidida=TRUE WHERE user_id=$2', [empresaId, req.userId]);
+    if (!r.rowCount) return res.status(404).json({ error: 'Primero conecta tu cuenta de Mercado Pago' });
+    olvidarCuentaMP(req.userId);
+    res.json({ ok: true, empresaId });
+  } catch (e) { fail(res, e, 'Error al guardar la empresa de la cuenta'); }
 });
 
 app.post('/api/mp/desconectar', auth, async (req, res) => {
@@ -1319,6 +1345,10 @@ app.post('/api/pp/clientes/:clienteId/cancelar-suscripcion', auth, async (req, r
     CREATE TABLE IF NOT EXISTS mp_cuentas(
       user_id INT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, mp_user_id VARCHAR(50),
       access_token TEXT NOT NULL, refresh_token TEXT NOT NULL, public_key VARCHAR(100), expires_at TIMESTAMP NOT NULL);
+    -- A qué empresa (id dentro de estado.empresas) pertenece esa cuenta de Mercado Pago. NULL = "ninguna" (cuenta personal).
+    -- empresa_decidida distingue "el cliente aún no eligió" (FALSE) de "eligió ninguna" (TRUE con empresa_id NULL).
+    ALTER TABLE mp_cuentas ADD COLUMN IF NOT EXISTS empresa_id INT;
+    ALTER TABLE mp_cuentas ADD COLUMN IF NOT EXISTS empresa_decidida BOOLEAN NOT NULL DEFAULT FALSE;
     -- Cobros puntuales a clientes (cuotas). cliente_id apunta al "id" dentro de estado.clientes (no hay tabla clientes).
     CREATE TABLE IF NOT EXISTS mp_cobros(
       id SERIAL PRIMARY KEY, user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
