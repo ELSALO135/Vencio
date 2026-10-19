@@ -1301,6 +1301,237 @@ app.post('/api/pp/clientes/:clienteId/cancelar-suscripcion', auth, async (req, r
   } catch (e) { ppFail(res, e, 'No se pudo cancelar la suscripción en PayPal'); }
 });
 
+// ── Bancos y tarjetas (cartolas de cualquier banco) ──
+// El cliente registra sus cuentas y tarjetas y sube la cartola o el estado de cuenta (Excel/CSV). El archivo se lee en su
+// navegador: aquí solo llegan fecha, descripción, monto (+ entrada / − salida) y saldo de cada fila. No se piden claves del banco
+// ni números de cuenta. Las tablas quedan listas para una conexión automática (Fintoc) más adelante: mismo modelo de datos.
+const BANCO_TIPOS = ['corriente', 'vista', 'ahorro', 'credito', 'linea'];
+const BANCO_MAX_CUENTAS = 20, BANCO_MAX_FILAS = 5000, BANCO_MAX_MOVS = 60000, BANCO_MAX_MONTO = 1e12;
+const bancoTxt = (v, max) => String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
+const hoyChile = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Santiago' });
+const bancoFecha = f => {
+  if (typeof f !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(f)) return false;
+  const d = new Date(f + 'T00:00:00Z');
+  if (isNaN(d) || d.toISOString().slice(0, 10) !== f) return false;               // descarta 2026-02-30 y similares
+  const manana = new Date(Date.parse(hoyChile() + 'T00:00:00Z') + 86400000).toISOString().slice(0, 10);
+  return f >= '2000-01-01' && f <= manana;
+};
+const bancoMonto = v => Number.isInteger(v) && Math.abs(v) <= BANCO_MAX_MONTO;
+const empresasDe = async userId => {
+  const r = (await pool.query('SELECT estado FROM user_data WHERE user_id=$1', [userId])).rows[0];
+  const l = r && r.estado && Array.isArray(r.estado.empresas) ? r.estado.empresas : [];
+  return new Set(l.map(e => Number(e.id)).filter(Number.isInteger));
+};
+// Valida nombre/banco/tipo/empresa de una cuenta. Devuelve { error } o { datos }.
+const bancoValidarCuenta = async (userId, b) => {
+  const nombre = bancoTxt(b && b.nombre, 60), banco = bancoTxt(b && b.banco, 40), tipo = String((b && b.tipo) || '');
+  if (!nombre) return { error: 'Ponle un nombre a la cuenta (por ejemplo: Cuenta corriente BancoEstado)' };
+  if (!BANCO_TIPOS.includes(tipo)) return { error: 'Tipo de cuenta no válido' };
+  let empresaId = null;
+  const raw = b && b.empresaId;
+  if (raw !== null && raw !== undefined && raw !== '' && raw !== 0 && raw !== '0') {
+    empresaId = Number(raw);
+    if (!Number.isInteger(empresaId) || empresaId < 1 || !(await empresasDe(userId)).has(empresaId)) return { error: 'Esa empresa no existe en tu cuenta' };
+  }
+  return { datos: { nombre, banco: banco || null, tipo, empresaId } };
+};
+const cuentaDe = async (userId, id) => {
+  const n = Number(id);
+  if (!Number.isInteger(n) || n < 1) return null;
+  return (await pool.query(`SELECT id, tipo, saldo, to_char(saldo_fecha,'YYYY-MM-DD') AS saldo_fecha FROM cuentas_banco WHERE id=$1 AND user_id=$2`, [n, userId])).rows[0] || null;
+};
+// Filtro por empresa para los listados: 'todas' (o vacío) | 'personal' | id de empresa
+const filtroEmpresa = (q, params) => {
+  if (q === 'personal') return ' AND c.empresa_id IS NULL';
+  const n = Number(q);
+  if (q && q !== 'todas' && Number.isInteger(n) && n > 0) { params.push(n); return ` AND c.empresa_id=$${params.length}`; }
+  return '';
+};
+
+app.get('/api/banco/cuentas', auth, async (req, res) => {
+  try {
+    const cuentas = (await pool.query(`
+      SELECT c.id, c.empresa_id AS "empresaId", c.nombre, c.banco, c.tipo, c.origen, c.saldo::float8 AS saldo,
+             to_char(c.saldo_fecha,'YYYY-MM-DD') AS "saldoFecha", COUNT(m.id)::int AS movimientos,
+             to_char(MIN(m.fecha),'YYYY-MM-DD') AS desde, to_char(MAX(m.fecha),'YYYY-MM-DD') AS hasta
+      FROM cuentas_banco c LEFT JOIN movs_banco m ON m.cuenta_id=c.id
+      WHERE c.user_id=$1 GROUP BY c.id ORDER BY c.id`, [req.userId])).rows;
+    const imps = (await pool.query(`
+      SELECT id, cuenta_id AS "cuentaId", archivo, filas, nuevas, to_char(created_at,'YYYY-MM-DD"T"HH24:MI:SS') AS fecha
+      FROM importaciones_banco WHERE user_id=$1 ORDER BY id DESC LIMIT 200`, [req.userId])).rows;
+    for (const c of cuentas) c.importaciones = imps.filter(i => i.cuentaId === c.id).slice(0, 5);
+    res.json({ cuentas, maxCuentas: BANCO_MAX_CUENTAS, maxFilas: BANCO_MAX_FILAS });
+  } catch (e) { fail(res, e, 'Error al cargar tus cuentas'); }
+});
+
+app.post('/api/banco/cuentas', auth, async (req, res) => {
+  try {
+    const v = await bancoValidarCuenta(req.userId, req.body);
+    if (v.error) return res.status(400).json({ error: v.error });
+    const n = (await pool.query('SELECT COUNT(*)::int AS n FROM cuentas_banco WHERE user_id=$1', [req.userId])).rows[0].n;
+    if (n >= BANCO_MAX_CUENTAS) return res.status(400).json({ error: `Puedes registrar hasta ${BANCO_MAX_CUENTAS} cuentas o tarjetas` });
+    const d = v.datos;
+    const r = await pool.query('INSERT INTO cuentas_banco(user_id,empresa_id,nombre,banco,tipo) VALUES($1,$2,$3,$4,$5) RETURNING id',
+      [req.userId, d.empresaId, d.nombre, d.banco, d.tipo]);
+    res.json({ ok: true, id: r.rows[0].id });
+  } catch (e) { fail(res, e, 'Error al crear la cuenta'); }
+});
+
+app.put('/api/banco/cuentas/:id', auth, async (req, res) => {
+  try {
+    const c = await cuentaDe(req.userId, req.params.id);
+    if (!c) return res.status(404).json({ error: 'Cuenta no encontrada' });
+    const v = await bancoValidarCuenta(req.userId, req.body);
+    if (v.error) return res.status(400).json({ error: v.error });
+    const d = v.datos;
+    await pool.query('UPDATE cuentas_banco SET empresa_id=$1,nombre=$2,banco=$3,tipo=$4 WHERE id=$5 AND user_id=$6',
+      [d.empresaId, d.nombre, d.banco, d.tipo, c.id, req.userId]);
+    res.json({ ok: true });
+  } catch (e) { fail(res, e, 'Error al guardar la cuenta'); }
+});
+
+app.delete('/api/banco/cuentas/:id', auth, async (req, res) => {
+  try {
+    const c = await cuentaDe(req.userId, req.params.id);
+    if (!c) return res.status(404).json({ error: 'Cuenta no encontrada' });
+    await pool.query('DELETE FROM cuentas_banco WHERE id=$1 AND user_id=$2', [c.id, req.userId]); // borra también sus movimientos
+    res.json({ ok: true });
+  } catch (e) { fail(res, e, 'Error al eliminar la cuenta'); }
+});
+
+// Recibe las filas ya leídas en el navegador. Se valida TODO antes de guardar: si una fila viene mal, no se guarda nada.
+app.post('/api/banco/cuentas/:id/importar', auth, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const c = await cuentaDe(req.userId, req.params.id);
+    if (!c) return res.status(404).json({ error: 'Cuenta no encontrada' });
+    const b = req.body || {}, filas = b.movimientos;
+    if (!Array.isArray(filas) || !filas.length) return res.status(400).json({ error: 'El archivo no trae movimientos' });
+    if (filas.length > BANCO_MAX_FILAS) return res.status(400).json({ error: `Máximo ${BANCO_MAX_FILAS} movimientos por archivo: divide la cartola en periodos más cortos` });
+    const fechas = [], descs = [], montos = [], saldos = [], huellas = [], vistos = new Map();
+    for (let i = 0; i < filas.length; i++) {
+      const f = filas[i] || {}, fecha = f.fecha, monto = f.monto, saldo = f.saldo == null ? null : f.saldo;
+      if (!bancoFecha(fecha)) return res.status(400).json({ error: `Fila ${i + 1}: fecha no válida` });
+      if (!bancoMonto(monto) || monto === 0) return res.status(400).json({ error: `Fila ${i + 1}: monto no válido` });
+      if (saldo !== null && !bancoMonto(saldo)) return res.status(400).json({ error: `Fila ${i + 1}: saldo no válido` });
+      const desc = bancoTxt(f.descripcion, 160);
+      // La huella identifica el movimiento: si hay dos filas idénticas en el mismo archivo (dos compras iguales el mismo día),
+      // se distinguen por su número de aparición, así no se pierden y tampoco se duplican al volver a subir el archivo.
+      const base = `${fecha}|${monto}|${desc.toLowerCase()}|${saldo === null ? '' : saldo}`;
+      const k = (vistos.get(base) || 0) + 1; vistos.set(base, k);
+      fechas.push(fecha); descs.push(desc || null); montos.push(monto); saldos.push(saldo);
+      huellas.push(crypto.createHash('sha256').update(`${base}|${k}`).digest('hex'));
+    }
+    const sf = b.saldoFinal;
+    let saldoFinal = null;
+    if (sf && sf.monto !== null && sf.monto !== undefined && sf.monto !== '') {
+      if (!bancoMonto(sf.monto) || !bancoFecha(sf.fecha)) return res.status(400).json({ error: 'El saldo final no es válido' });
+      saldoFinal = { monto: sf.monto, fecha: sf.fecha };
+    }
+    const total = (await pool.query('SELECT COUNT(*)::int AS n FROM movs_banco WHERE user_id=$1', [req.userId])).rows[0].n;
+    if (total + filas.length > BANCO_MAX_MOVS) return res.status(400).json({ error: `Llegaste al máximo de ${BANCO_MAX_MOVS} movimientos guardados` });
+
+    await client.query('BEGIN');
+    const imp = (await client.query(
+      'INSERT INTO importaciones_banco(user_id,cuenta_id,archivo,filas,saldo_previo,saldo_fecha_previa) VALUES($1,$2,$3,$4,$5,$6) RETURNING id',
+      [req.userId, c.id, bancoTxt(b.archivo, 120) || null, filas.length, c.saldo, c.saldo_fecha])).rows[0].id;
+    const ins = await client.query(`
+      INSERT INTO movs_banco(user_id,cuenta_id,import_id,fecha,descripcion,monto,saldo,huella)
+      SELECT $1,$2,$3,f,d,m,s,h FROM unnest($4::date[],$5::text[],$6::bigint[],$7::bigint[],$8::text[]) AS t(f,d,m,s,h)
+      ON CONFLICT (cuenta_id,huella) DO NOTHING RETURNING id`,
+      [req.userId, c.id, imp, fechas, descs, montos, saldos, huellas]);
+    const nuevas = ins.rowCount;
+    // El saldo de la cuenta solo se actualiza si el del archivo es igual o más reciente que el que ya tenía
+    const fPrev = c.saldo_fecha || null;
+    let saldoAplicado = false;
+    const mismoSaldo = saldoFinal && fPrev === saldoFinal.fecha && c.saldo !== null && Number(c.saldo) === saldoFinal.monto;
+    if (saldoFinal && !mismoSaldo && (!fPrev || saldoFinal.fecha >= fPrev)) {
+      await client.query('UPDATE cuentas_banco SET saldo=$1, saldo_fecha=$2 WHERE id=$3', [saldoFinal.monto, saldoFinal.fecha, c.id]);
+      saldoAplicado = true;
+    }
+    if (!nuevas && !saldoAplicado) { await client.query('ROLLBACK'); return res.json({ ok: true, importId: null, nuevas: 0, repetidas: filas.length, saldoActualizado: false }); }
+    await client.query('UPDATE importaciones_banco SET nuevas=$1, saldo_aplicado=$2, saldo_fecha_aplicada=$3 WHERE id=$4',
+      [nuevas, saldoAplicado ? saldoFinal.monto : null, saldoAplicado ? saldoFinal.fecha : null, imp]);
+    await client.query('COMMIT');
+    res.json({ ok: true, importId: imp, nuevas, repetidas: filas.length - nuevas, saldoActualizado: saldoAplicado });
+  } catch (e) { await client.query('ROLLBACK').catch(() => {}); fail(res, e, 'Error al importar la cartola'); }
+  finally { client.release(); }
+});
+
+// Deshacer una importación: borra sus movimientos y, si el saldo de la cuenta sigue siendo el que puso esa importación, vuelve al anterior
+app.delete('/api/banco/importaciones/:id', auth, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const n = Number(req.params.id);
+    if (!Number.isInteger(n) || n < 1) return res.status(404).json({ error: 'Importación no encontrada' });
+    await client.query('BEGIN');
+    const imp = (await client.query(`SELECT id, cuenta_id, saldo_aplicado, saldo_previo, to_char(saldo_fecha_aplicada,'YYYY-MM-DD') AS saldo_fecha_aplicada,
+      to_char(saldo_fecha_previa,'YYYY-MM-DD') AS saldo_fecha_previa FROM importaciones_banco WHERE id=$1 AND user_id=$2 FOR UPDATE`, [n, req.userId])).rows[0];
+    if (!imp) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Importación no encontrada' }); }
+    const borrados = (await client.query('DELETE FROM movs_banco WHERE import_id=$1 AND user_id=$2', [n, req.userId])).rowCount;
+    if (imp.saldo_aplicado !== null)
+      await client.query(`UPDATE cuentas_banco SET saldo=$1, saldo_fecha=$2
+        WHERE id=$3 AND user_id=$4 AND saldo IS NOT DISTINCT FROM $5::bigint AND saldo_fecha IS NOT DISTINCT FROM $6::date`,
+        [imp.saldo_previo, imp.saldo_fecha_previa, imp.cuenta_id, req.userId, imp.saldo_aplicado, imp.saldo_fecha_aplicada]);
+    await client.query('DELETE FROM importaciones_banco WHERE id=$1', [n]);
+    await client.query('COMMIT');
+    res.json({ ok: true, borrados });
+  } catch (e) { await client.query('ROLLBACK').catch(() => {}); fail(res, e, 'Error al deshacer la importación'); }
+  finally { client.release(); }
+});
+
+app.get('/api/banco/movimientos', auth, async (req, res) => {
+  try {
+    const params = [req.userId];
+    let w = filtroEmpresa(req.query.empresa, params);
+    if (req.query.cuenta) { const n = Number(req.query.cuenta); if (!Number.isInteger(n)) return res.json({ movimientos: [] }); params.push(n); w += ` AND c.id=$${params.length}`; }
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
+    params.push(limit);
+    const r = await pool.query(`
+      SELECT m.id, to_char(m.fecha,'YYYY-MM-DD') AS fecha, m.descripcion, m.monto::float8 AS monto, m.saldo::float8 AS saldo,
+             c.id AS "cuentaId", c.nombre AS cuenta, c.tipo
+      FROM movs_banco m JOIN cuentas_banco c ON c.id=m.cuenta_id
+      WHERE m.user_id=$1${w} ORDER BY m.fecha DESC, m.id DESC LIMIT $${params.length}`, params);
+    res.json({ movimientos: r.rows });
+  } catch (e) { fail(res, e, 'Error al cargar los movimientos'); }
+});
+
+// Resumen para la sección: saldos, entradas y salidas del periodo y serie por día.
+// Las tarjetas de crédito y líneas van aparte (lo gastado con ellas y la deuda), para no contar dos veces el mismo gasto
+// cuando después se paga la tarjeta desde la cuenta corriente.
+app.get('/api/banco/resumen', auth, async (req, res) => {
+  try {
+    const dias = [30, 90, 365].includes(parseInt(req.query.dias, 10)) ? parseInt(req.query.dias, 10) : 30;
+    const hasta = hoyChile(), desde = new Date(Date.parse(hasta + 'T00:00:00Z') - (dias - 1) * 86400000).toISOString().slice(0, 10);
+    const params = [req.userId];
+    const w = filtroEmpresa(req.query.empresa, params);
+    const cuentas = (await pool.query(`SELECT c.id, c.tipo, c.saldo::float8 AS saldo, to_char(c.saldo_fecha,'YYYY-MM-DD') AS "saldoFecha"
+      FROM cuentas_banco c WHERE c.user_id=$1${w}`, params)).rows;
+    params.push(desde, hasta);
+    const filas = (await pool.query(`
+      SELECT to_char(m.fecha,'YYYY-MM-DD') AS dia, c.tipo IN ('credito','linea') AS credito,
+             SUM(CASE WHEN m.monto>0 THEN m.monto ELSE 0 END)::float8 AS entradas,
+             SUM(CASE WHEN m.monto<0 THEN -m.monto ELSE 0 END)::float8 AS salidas
+      FROM movs_banco m JOIN cuentas_banco c ON c.id=m.cuenta_id
+      WHERE m.user_id=$1${w} AND m.fecha BETWEEN $${params.length - 1} AND $${params.length}
+      GROUP BY 1,2`, params)).rows;
+    const serie = new Map();
+    for (let i = dias - 1; i >= 0; i--) serie.set(new Date(Date.parse(hasta + 'T00:00:00Z') - i * 86400000).toISOString().slice(0, 10), { entradas: 0, salidas: 0 });
+    const t = { entradas: 0, salidas: 0, gastadoTarjetas: 0 };
+    for (const f of filas) {
+      if (f.credito) { t.gastadoTarjetas += f.salidas; continue; }
+      t.entradas += f.entradas; t.salidas += f.salidas;
+      const s = serie.get(f.dia); if (s) { s.entradas += f.entradas; s.salidas += f.salidas; }
+    }
+    const efectivo = cuentas.filter(c => !['credito', 'linea'].includes(c.tipo)), credito = cuentas.filter(c => ['credito', 'linea'].includes(c.tipo));
+    const suma = l => l.reduce((a, c) => a + (c.saldo || 0), 0);
+    res.json({ dias, desde, hasta, ...t, neto: t.entradas - t.salidas,
+      saldoCuentas: suma(efectivo), cuentasSinSaldo: efectivo.filter(c => c.saldo === null).length, cuentas: cuentas.length,
+      deudaTarjetas: suma(credito), tarjetas: credito.length,
+      serie: [...serie].map(([dia, v]) => ({ dia, ...v })) });
+  } catch (e) { fail(res, e, 'Error al calcular el resumen'); }
+});
+
 (async () => {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users(
@@ -1373,7 +1604,28 @@ app.post('/api/pp/clientes/:clienteId/cancelar-suscripcion', auth, async (req, r
     CREATE TABLE IF NOT EXISTS pp_suscripciones(
       id SERIAL PRIMARY KEY, user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       cliente_id INT NOT NULL, subscription_id VARCHAR(60) NOT NULL, plan_id VARCHAR(60), monto NUMERIC(12,2) NOT NULL,
-      activo BOOLEAN NOT NULL DEFAULT FALSE, created_at TIMESTAMP DEFAULT NOW(), UNIQUE(user_id, cliente_id));`);
+      activo BOOLEAN NOT NULL DEFAULT FALSE, created_at TIMESTAMP DEFAULT NOW(), UNIQUE(user_id, cliente_id));
+    -- Bancos y tarjetas: cuentas que cada usuario registra (de cualquier banco) y los movimientos que sube desde su cartola.
+    -- empresa_id = id dentro de estado.empresas, NULL = cuenta personal. origen = 'cartola' (subida a mano); queda listo para 'fintoc'.
+    CREATE TABLE IF NOT EXISTS cuentas_banco(
+      id SERIAL PRIMARY KEY, user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE, empresa_id INT,
+      nombre VARCHAR(60) NOT NULL, banco VARCHAR(40), tipo VARCHAR(12) NOT NULL DEFAULT 'corriente',
+      origen VARCHAR(12) NOT NULL DEFAULT 'cartola', externo_id VARCHAR(80),
+      saldo BIGINT, saldo_fecha DATE, created_at TIMESTAMP DEFAULT NOW());
+    CREATE TABLE IF NOT EXISTS importaciones_banco(
+      id SERIAL PRIMARY KEY, user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      cuenta_id INT NOT NULL REFERENCES cuentas_banco(id) ON DELETE CASCADE, archivo VARCHAR(120),
+      filas INT NOT NULL DEFAULT 0, nuevas INT NOT NULL DEFAULT 0,
+      saldo_aplicado BIGINT, saldo_fecha_aplicada DATE, saldo_previo BIGINT, saldo_fecha_previa DATE,
+      created_at TIMESTAMP DEFAULT NOW());
+    -- monto: + entrada / − salida (en pesos). huella evita duplicar un movimiento si se sube la misma cartola dos veces.
+    CREATE TABLE IF NOT EXISTS movs_banco(
+      id SERIAL PRIMARY KEY, user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      cuenta_id INT NOT NULL REFERENCES cuentas_banco(id) ON DELETE CASCADE,
+      import_id INT REFERENCES importaciones_banco(id) ON DELETE CASCADE,
+      fecha DATE NOT NULL, descripcion VARCHAR(160), monto BIGINT NOT NULL, saldo BIGINT,
+      huella VARCHAR(64) NOT NULL, created_at TIMESTAMP DEFAULT NOW(), UNIQUE(cuenta_id, huella));
+    CREATE INDEX IF NOT EXISTS movs_banco_user_fecha_idx ON movs_banco(user_id, fecha);`);
   if (ADMIN_EMAIL && !(await pool.query('SELECT 1 FROM users WHERE LOWER(email)=$1', [ADMIN_EMAIL])).rowCount)
     console.warn('⚠ ADMIN_EMAIL no coincide con ningún usuario registrado: revisa que sea EXACTAMENTE el correo con el que entras a Vencio.');
   app.listen(PORT, () => console.log(`✓ Vencio corriendo en http://localhost:${PORT}`));
