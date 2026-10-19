@@ -1032,6 +1032,15 @@ html[data-sesion="1"] .lp-solo-visita{display:none!important}
   </div>
 </div>
 
+<div class="overlay" id="modal-mp-emp">
+  <div class="modal" style="width:440px">
+    <div class="modal-t">¿A qué empresa pertenece esta cuenta? <span class="modal-x" onclick="cerrar('modal-mp-emp')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span></div>
+    <p style="font-size:12.5px;color:var(--text2);line-height:1.55;margin-bottom:12px">Si la asocias a una empresa, sus ingresos de Mercado Pago aparecen en los Gráficos de esa empresa y ayudan en el Cierre de saldo. Si es una cuenta personal, elige <b>Ninguna</b>: no se mezclará con las finanzas de tus empresas. Puedes cambiarlo cuando quieras en Integraciones.</p>
+    <div class="fg"><label class="fl">Empresa</label><select class="fi" id="mpe-sel"></select></div>
+    <div class="ma"><button class="btn" onclick="cerrar('modal-mp-emp')">Ahora no</button><button class="btn btn-p" id="mpe-btn" onclick="mpGuardarEmpresa()">Guardar</button></div>
+  </div>
+</div>
+
 <div class="overlay" id="modal-saldo">
   <div class="modal" style="width:440px">
     <div class="modal-t">Registrar saldo <span class="modal-x" onclick="cerrar('modal-saldo')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span></div>
@@ -1486,12 +1495,13 @@ function togglePago(k,val){if(METODOS_PAGO[k].proximamente)return;METODOS_PAGO[k
 // INTEGRACIONES
 // ═══════════════════════════
 let MP_CONECTADO=false,PP_CONECTADO=false,PP_MODO=null;
+let MP_EMP=null,MP_DECIDIDA=false; // empresa a la que el cliente asoció su Mercado Pago (null = ninguna) y si ya eligió
 function renderIntegraciones(){
   let h="";
   INTEGRACIONES.forEach(i=>{
     if(i.id==="mp"){
       const on=MP_CONECTADO;
-      h+=`<div class="int-card"><div style="font-size:28px;margin-bottom:8px">${i.logo}</div><div style="font-size:14px;font-weight:500;margin-bottom:4px">${esc(i.nombre)}</div><div style="font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:12px">${esc(i.desc)}</div><div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px"><span style="font-size:11.5px;${on?"color:var(--green);font-weight:500":"color:var(--text3)"}">${on?"✓ Conectado":"Sin conectar"}</span><button class="btn ${on?"":"btn-p"} btn-sm" onclick="${on?"mpDesconectar()":"mpConectar()"}">${on?"Desconectar":"Conectar"}</button></div></div>`;
+      h+=`<div class="int-card"><div style="font-size:28px;margin-bottom:8px">${i.logo}</div><div style="font-size:14px;font-weight:500;margin-bottom:4px">${esc(i.nombre)}</div><div style="font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:12px">${esc(i.desc)}</div>${on?mpEmpLinea():""}<div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px"><span style="font-size:11.5px;${on?"color:var(--green);font-weight:500":"color:var(--text3)"}">${on?"✓ Conectado":"Sin conectar"}</span><button class="btn ${on?"":"btn-p"} btn-sm" onclick="${on?"mpDesconectar()":"mpConectar()"}">${on?"Desconectar":"Conectar"}</button></div></div>`;
       return;
     }
     if(i.id==="pp"){
@@ -1502,6 +1512,7 @@ function renderIntegraciones(){
     h+=`<div class="int-card" style="opacity:.6"><div style="font-size:28px;margin-bottom:8px">${i.logo}</div><div style="font-size:14px;font-weight:500;margin-bottom:4px">${esc(i.nombre)}</div><div style="font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:12px">${esc(i.desc)}</div><span style="font-size:11.5px;color:var(--text3)">Proximamente</span></div>`;
   });
   document.getElementById("int-grid").innerHTML=h;
+  mpPruebaRender();
   cargarTiendas();
 }
 
@@ -1509,10 +1520,40 @@ function renderIntegraciones(){
 // MERCADO PAGO: conectar / desconectar / estado
 // ═══════════════════════════
 function mpConectar(){if(DEMO||!TOKEN){alert("Inicia sesión con una cuenta real (no la demo) para conectar Mercado Pago.");return;}if(!confirm("Mercado Pago va a conectar la cuenta en la que ya tienes sesión abierta en este navegador, sin pedirte usuario ni clave.\n\nSi quieres conectar OTRA cuenta (por ejemplo, la de otra persona o la de tu negocio), cancela, abre Vencio en una ventana de incógnito (o cierra sesión en mercadopago.cl) y vuelve a intentar.\n\n¿Continuar con la cuenta actual?"))return;location.href="/api/mp/conectar?token="+encodeURIComponent(TOKEN);}
+// ── A qué empresa pertenece la cuenta de Mercado Pago del cliente (opcional) ──
+// "empresa" = asociada a una empresa que existe; "personal" = el cliente eligió «Ninguna»; "pendiente" = aún no elige (o la empresa ya no existe).
+function mpEstadoEmp(){
+  if(MP_EMP!=null&&EMPRESAS.some(e=>e.id===MP_EMP))return"empresa";
+  if(MP_DECIDIDA&&MP_EMP==null)return"personal";
+  return"pendiente";
+}
+function mpEmpLinea(){
+  const st=mpEstadoEmp(),emp=EMPRESAS.find(e=>e.id===MP_EMP);
+  const txt=st==="empresa"?`Empresa: <b>${esc(emp.nombre)}</b>`:st==="personal"?"Cuenta personal (ninguna empresa)":"Aún no eliges a qué empresa pertenece";
+  return `<div style="font-size:12px;color:${st==="pendiente"?"var(--amber)":"var(--text2)"};margin:-4px 0 10px">🏢 ${txt} · <a href="#" onclick="mpAbrirEmpresa();return false" style="color:var(--blue)">${st==="pendiente"?"Elegir":"Cambiar"}</a></div>`;
+}
+function mpAbrirEmpresa(){
+  const sel=document.getElementById("mpe-sel");if(!sel)return;
+  sel.innerHTML=`<option value="0">Ninguna (es una cuenta personal)</option>`+EMPRESAS.map(e=>`<option value="${esc(e.id)}">${esc(e.nombre)}</option>`).join("");
+  sel.value=mpEstadoEmp()==="empresa"?String(MP_EMP):"0";
+  document.getElementById("modal-mp-emp").classList.add("open");
+}
+async function mpGuardarEmpresa(){
+  const v=parseInt(document.getElementById("mpe-sel").value)||0,b=document.getElementById("mpe-btn");
+  b.disabled=true;
+  try{
+    await api("/mp/empresa","POST",{empresaId:v||null});
+    MP_EMP=v||null;MP_DECIDIDA=true;MP_GRAF_T=0;
+    cerrar("modal-mp-emp");renderIntegraciones();mpCargarCuenta(true,"graf");
+  }catch(e){alert("No se pudo guardar: "+e.message);}
+  b.disabled=false;
+}
+
 // Prueba de lectura de saldo y retiros (reportes de Mercado Pago): muestra, por cada llamada, si Mercado Pago la permitió o no.
 function mpPruebaRender(){
   const c=document.getElementById("mp-prueba");if(!c)return;
   if(!MP_CONECTADO){c.innerHTML="";return;}
+  if(c.firstChild)return;
   c.innerHTML=`<div class="card" style="padding:1rem 1.25rem"><div style="font-size:13.5px;font-weight:600;margin-bottom:3px">Probar lectura de saldo y retiros</div><div style="font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:10px">Mercado Pago tiene reportes con el saldo y los retiros de dinero. Esta prueba revisa si tu cuenta conectada los deja leer desde Vencio. No modifica tu dinero.</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-sm" onclick="mpProbarReportes(false)">Revisar permisos</button><button class="btn btn-sm" onclick="mpProbarReportes(true)">Pedir reporte de prueba (7 días)</button></div><div id="mp-prueba-res" style="margin-top:10px;font-size:12px"></div></div>`;
 }
 async function mpProbarReportes(generar){
@@ -1523,7 +1564,7 @@ async function mpProbarReportes(generar){
     r.innerHTML=d.resultados.map(x=>`<div style="padding:6px 0;border-top:.5px solid var(--border)"><span style="font-weight:500;color:${x.ok?"var(--green)":"var(--red)"}">${x.ok?"✓ Permitido":"✕ No permitido"}</span> · ${esc(x.nombre)} <span style="color:var(--text3)">(código ${x.http})</span>${x.mensaje?`<div style="color:var(--text3);margin-top:2px">Mercado Pago dijo: ${esc(x.mensaje)}</div>`:""}${x.ok&&x.cantidad!=null?`<div style="color:var(--text3);margin-top:2px">Reportes en la lista: ${x.cantidad}</div>`:""}</div>`).join("")+'<div style="color:var(--text3);margin-top:8px">Hora de la prueba: '+esc(new Date(d.momento).toLocaleString("es-CL"))+'</div>';
   }catch(e){r.innerHTML=`<span style="color:var(--red)">${esc(e.message)}</span>`;}
 }
-async function mpDesconectar(){if(!confirm("¿Desconectar tu cuenta de Mercado Pago? Las suscripciones activas seguirán cobrando hasta que las canceles desde tu cuenta de Mercado Pago."))return;try{await api("/mp/desconectar","POST",{});MP_CONECTADO=false;renderIntegraciones();mpCargarCuenta();}catch(e){alert(e.message);}}
+async function mpDesconectar(){if(!confirm("¿Desconectar tu cuenta de Mercado Pago? Las suscripciones activas seguirán cobrando hasta que las canceles desde tu cuenta de Mercado Pago."))return;try{await api("/mp/desconectar","POST",{});MP_CONECTADO=false;MP_EMP=null;MP_DECIDIDA=false;renderIntegraciones();mpCargarCuenta();}catch(e){alert(e.message);}}
 // ═══════════════════════════
 // PAYPAL: conectar / desconectar (cada negocio pega las llaves de su propia app de PayPal)
 // ═══════════════════════════
@@ -1561,6 +1602,12 @@ function mpFmt(n,moneda){return(!moneda||moneda==="CLP")?fmt(n):esc(moneda)+" "+
 async function mpCargarCuenta(forzar,pn){
   if(!pn){if(MP_CONECTADO)mpCargarCuenta(forzar,"graf");mpCargarCuenta(forzar,"cuenta");if(MP_PROPIETARIO||document.getElementById("mp-propia").innerHTML)mpCargarCuenta(forzar,"propia");return;}
   const p=MP_PAN[pn],cont=document.getElementById(p.cont);if(!cont)return;
+  if(pn==="graf"&&MP_CONECTADO&&!DEMO&&TOKEN){
+    const st=mpEstadoEmp();
+    if(st==="personal"){p.req++;cont.innerHTML="";return;} // cuenta personal: no se mezcla con las finanzas de las empresas
+    if(st==="pendiente"){p.req++;cont.innerHTML=`<div class="card" style="padding:1rem 1.25rem;margin-bottom:12px;font-size:12.5px;color:var(--text2)">Conectaste Mercado Pago, pero aún no dices a qué empresa pertenece. Elígela para ver aquí sus ingresos reales. <button class="btn btn-sm" style="margin-left:8px" onclick="mpAbrirEmpresa()">Elegir empresa</button></div>`;return;}
+    p.tit="Ingresos reales en Mercado Pago · "+EMPRESAS.find(e=>e.id===MP_EMP).nombre;
+  }
   const activo=pn==="propia"?MP_PROPIETARIO:MP_CONECTADO;
   if(DEMO||!TOKEN||!activo){p.req++;cont.innerHTML="";return;}
   const mio=++p.req;
@@ -1601,12 +1648,12 @@ function renderMpCuenta(d,pn){
   document.getElementById(P.cont).innerHTML=h;
 }
 
-async function mpCargarEstado(){if(DEMO||!TOKEN)return;ppCargarEstado();try{const e=await api("/mp/estado");MP_CONECTADO=e.conectado;MP_PROPIETARIO=!!e.propietario;renderIntegraciones();mpCargarCuenta();}catch(e){}}
+async function mpCargarEstado(){if(DEMO||!TOKEN)return;ppCargarEstado();try{const e=await api("/mp/estado");MP_CONECTADO=e.conectado;MP_PROPIETARIO=!!e.propietario;MP_EMP=e.empresaId==null?null:e.empresaId;MP_DECIDIDA=!!e.decidida;renderIntegraciones();mpCargarCuenta();}catch(e){}}
 async function revisarMP(){
   const p=new URLSearchParams(location.search),q=p.get("mp");if(!q)return;
   const motivo=(p.get("motivo")||"").slice(0,200);
   history.replaceState(null,"",location.pathname+location.hash);
-  if(q==="ok"){alert("✓ Tu cuenta de Mercado Pago quedó conectada.");await mpCargarEstado();}
+  if(q==="ok"){alert("✓ Tu cuenta de Mercado Pago quedó conectada.");await mpCargarEstado();if(MP_CONECTADO&&!MP_DECIDIDA)mpAbrirEmpresa();}
   else alert("No se pudo conectar tu cuenta de Mercado Pago."+(motivo?"\n\nMotivo: "+motivo:"")+"\n\nIntenta de nuevo.");
 }
 
@@ -1816,7 +1863,9 @@ function sugerirEntradas(){
   const prev=SALDOS.filter(x=>x.empresa===emp&&x.cuenta===cuenta&&x.fecha<=fecha).sort((a,b)=>b.fecha.localeCompare(a.fecha)||b.id-a.id)[0];
   if(!prev){hint.textContent="Este será el primer saldo de esta cuenta: queda como punto de partida y no calcula salidas todavía.";inp.value="";return;}
   let txt="Cierre anterior: "+fmtF(prev.fecha)+" con saldo "+fmt(prev.monto)+". Anota aquí todo el dinero que entró a la cuenta desde entonces.";
-  if(cuenta==="Mercado Pago"&&MP_CONECTADO&&MP_SERIE.length){
+  if(cuenta==="Mercado Pago"&&MP_CONECTADO&&mpEstadoEmp()!=="empresa")txt+=" Para que Vencio sugiera las entradas, asocia tu Mercado Pago a esta empresa en Integraciones.";
+  else if(cuenta==="Mercado Pago"&&MP_CONECTADO&&MP_EMP!==emp)txt+=" Tu Mercado Pago está asociado a otra empresa, por eso no se sugieren las entradas.";
+  else if(cuenta==="Mercado Pago"&&MP_CONECTADO&&MP_SERIE.length){
     const dias=MP_SERIE.map(x=>x.dia);
     if(dias[0]<=prev.fecha){
       const sug=MP_SERIE.filter(x=>x.dia>prev.fecha&&x.dia<=fecha).reduce((s,x)=>s+x.total,0);
