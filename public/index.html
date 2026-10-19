@@ -695,6 +695,7 @@ html[data-sesion="1"] .lp-solo-visita{display:none!important}
       <div class="ni" onclick="navTo(this,'grafico')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> Gráficos</div>
       <div class="ni" onclick="navTo(this,'finanzas')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg> Finanzas</div>
       <div class="ni" onclick="navTo(this,'gastos')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v14"/><path d="M6 11l6 6 6-6"/><path d="M4 21h16"/></svg> Gastos</div>
+      <div class="ni" onclick="navTo(this,'bancos')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l9-6 9 6"/><path d="M5 10v8"/><path d="M10 10v8"/><path d="M14 10v8"/><path d="M19 10v8"/><path d="M3 21h18"/></svg> Bancos</div>
       <div class="ni" onclick="navTo(this,'calendario')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Calendario</div>
       <div class="ni" onclick="navTo(this,'clientes')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Clientes</div>
       <div class="ni" onclick="navTo(this,'alertas')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> Alertas <span class="nb" id="nb-alertas" style="display:none">0</span></div>
@@ -865,6 +866,21 @@ html[data-sesion="1"] .lp-solo-visita{display:none!important}
         <div class="pay-grid" id="pay-grid"></div>
       </div>
 
+      <!-- BANCOS Y TARJETAS -->
+      <div class="sec" id="s-bancos">
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:1.5rem;flex-wrap:wrap">
+          <div class="sec-hdr-ico" style="background:#E6F1FB"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#185FA5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l9-6 9 6"/><path d="M5 10v8"/><path d="M10 10v8"/><path d="M14 10v8"/><path d="M19 10v8"/><path d="M3 21h18"/></svg></div>
+          <div style="flex:1;min-width:180px"><div style="font-size:18px;font-weight:500">Bancos y tarjetas</div><div style="font-size:13px;color:var(--text3)">Sube la cartola de tu banco o el estado de tu tarjeta y mira saldo, entradas y salidas</div></div>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><select class="fi" id="ban-filtro" onchange="banFiltro(this.value)" style="width:auto"></select><select class="fi" id="ban-dias" onchange="banPeriodo(this.value)" style="width:auto"><option value="30">Últimos 30 días</option><option value="90">Últimos 90 días</option><option value="365">Últimos 12 meses</option></select><button class="btn btn-p" onclick="banAbrirCuenta()">+ Agregar cuenta o tarjeta</button></div>
+        </div>
+        <div id="ban-aviso"></div>
+        <div class="metrics" id="ban-metricas"></div>
+        <div class="card card-pad" style="margin-top:1rem"><div style="font-size:14px;font-weight:500;margin-bottom:10px">Entradas y salidas de tus cuentas</div><div id="ban-serie"></div></div>
+        <div class="card card-pad" style="margin-top:1rem"><div style="font-size:14px;font-weight:500;margin-bottom:4px">Tus cuentas y tarjetas</div><div id="ban-cuentas"></div></div>
+        <div class="card card-pad" style="margin-top:1rem"><div style="font-size:14px;font-weight:500;margin-bottom:4px">Últimos movimientos</div><div id="ban-movs"></div></div>
+        <p style="font-size:11.5px;color:var(--text3);margin-top:12px">ℹ️ Los datos se actualizan cada vez que subes una cartola nueva. Próximamente: conexión automática con tu banco.</p>
+      </div>
+
       <!-- INTEGRACIONES -->
       <div class="sec" id="s-integraciones">
         <div class="sec-hdr"><div class="sec-hdr-ico" style="background:#FAEEDA"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#854F0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div><div class="sec-hdr-txt"><h2>Integraciones</h2><p>Conecta WooCommerce, Shopify, Mercado Pago y más</p></div></div>
@@ -1029,6 +1045,40 @@ html[data-sesion="1"] .lp-solo-visita{display:none!important}
     <div class="frow"><div class="fg"><label class="fl">Empresa</label><select class="fi" id="g-empresa"></select></div><div class="fg"><label class="fl">Categoría</label><select class="fi" id="g-cat"></select></div></div>
     <div class="fg"><label class="fl">Detalle (opcional)</label><input class="fi" id="g-nota" type="text" maxlength="120" placeholder="Ej: Verduras del proveedor"></div>
     <div class="ma"><button class="btn" onclick="cerrar('modal-gasto')">Cancelar</button><button class="btn btn-p" onclick="agregarGasto()">Guardar gasto</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="modal-banco-cuenta">
+  <div class="modal" style="width:440px">
+    <div class="modal-t" id="bc-titulo">Agregar cuenta o tarjeta <span class="modal-x" onclick="cerrar('modal-banco-cuenta')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span></div>
+    <input type="hidden" id="bc-id">
+    <div class="fg"><label class="fl">Nombre</label><input class="fi" id="bc-nombre" type="text" maxlength="60" placeholder="Ej: Cuenta corriente del restaurante"></div>
+    <div class="frow"><div class="fg"><label class="fl">Banco</label><input class="fi" id="bc-banco" type="text" maxlength="40" list="bc-bancos" placeholder="Ej: BancoEstado"><datalist id="bc-bancos"></datalist></div><div class="fg"><label class="fl">Tipo</label><select class="fi" id="bc-tipo"></select></div></div>
+    <div class="fg"><label class="fl">¿A qué empresa pertenece?</label><select class="fi" id="bc-empresa"></select></div>
+    <p style="font-size:11.5px;color:var(--text3);line-height:1.5;margin:4px 0 0">No te pedimos número de cuenta ni clave del banco.</p>
+    <div class="ma"><button class="btn" onclick="cerrar('modal-banco-cuenta')">Cancelar</button><button class="btn btn-p" id="bc-btn" onclick="banGuardarCuenta()">Guardar</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="modal-banco-import">
+  <div class="modal" style="width:620px;max-width:calc(100vw - 32px);max-height:calc(100vh - 40px);overflow:auto">
+    <div class="modal-t">Subir cartola <span class="modal-x" onclick="cerrar('modal-banco-import')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span></div>
+    <div style="font-size:12.5px;color:var(--text2);margin-bottom:8px">Cuenta: <b id="bi-cuenta"></b></div>
+    <p id="bi-ayuda" style="font-size:12.5px;color:var(--text2);line-height:1.55;margin-bottom:10px"></p>
+    <input class="fi" id="bi-file" type="file" accept=".xlsx,.xls,.csv,.txt" onchange="banArchivoElegido(this)">
+    <p style="font-size:11.5px;color:var(--text3);margin:6px 0 0">🔒 El archivo se lee en tu navegador. A Vencio solo llegan la fecha, la descripción, el monto y el saldo de cada movimiento. Si subes la misma cartola dos veces, no se duplica.</p>
+    <div id="bi-estado" style="font-size:12.5px;margin-top:8px"></div>
+    <div id="bi-paso2" style="display:none;margin-top:12px;padding-top:12px;border-top:.5px solid var(--border)">
+      <div class="fg"><label class="fl">Fila de títulos</label><select class="fi" id="bi-cab" onchange="banAplicarCabecera()"></select></div>
+      <div class="frow"><div class="fg"><label class="fl">Fecha</label><select class="fi" id="bi-fecha" onchange="banPrevia()"></select></div><div class="fg"><label class="fl">Descripción</label><select class="fi" id="bi-desc" onchange="banPrevia()"></select></div></div>
+      <div class="frow"><div class="fg"><label class="fl">¿Cómo vienen los montos?</label><select class="fi" id="bi-modo" onchange="banModo()"><option value="dos">En dos columnas: cargos y abonos</option><option value="una">En una sola columna</option></select></div><div class="fg"><label class="fl">Saldo (opcional)</label><select class="fi" id="bi-saldo" onchange="banPrevia()"></select></div></div>
+      <div class="frow" id="bi-dos"><div class="fg"><label class="fl">Cargos (salidas)</label><select class="fi" id="bi-cargo" onchange="banPrevia()"></select></div><div class="fg"><label class="fl">Abonos (entradas)</label><select class="fi" id="bi-abono" onchange="banPrevia()"></select></div></div>
+      <div class="frow" id="bi-una"><div class="fg"><label class="fl">Monto</label><select class="fi" id="bi-monto" onchange="banPrevia()"></select></div></div>
+      <label style="font-size:12.5px;display:flex;gap:6px;align-items:center;color:var(--text2)"><input type="checkbox" id="bi-inv" onchange="banPrevia()"> Invertir entradas y salidas</label>
+      <div id="bi-previa"></div>
+      <div class="frow" style="margin-top:10px"><div class="fg"><label class="fl" id="bi-sf-lbl">Saldo de la cuenta al</label><input class="fi" id="bi-sf-fecha" type="date" oninput="BAN_IMP&&(BAN_IMP.sfEditado=true)"></div><div class="fg"><label class="fl">Monto en pesos (opcional)</label><input class="fi" id="bi-sf-monto" type="text" inputmode="numeric" placeholder="Ej: 1.250.000" oninput="BAN_IMP&&(BAN_IMP.sfEditado=true)"></div></div>
+    </div>
+    <div class="ma"><button class="btn" onclick="cerrar('modal-banco-import')">Cancelar</button><button class="btn btn-p" id="bi-ok" onclick="banImportar()" disabled>Importar</button></div>
   </div>
 </div>
 
@@ -1490,6 +1540,312 @@ function renderPagos(){
   document.getElementById("pay-grid").innerHTML=h;
 }
 function togglePago(k,val){if(METODOS_PAGO[k].proximamente)return;METODOS_PAGO[k].activo=val;renderPagos();}
+
+// ═══════════════════════════
+// BANCOS Y TARJETAS (cartolas de cualquier banco)
+// ═══════════════════════════
+// La cartola (Excel o CSV) se lee aquí, en el navegador. Al servidor solo se envían fecha, descripción, monto y saldo de cada fila:
+// nunca claves del banco ni números de cuenta. Monto: + entrada / − salida.
+const BAN_TIPOS={corriente:"Cuenta corriente",vista:"Cuenta vista / RUT",ahorro:"Cuenta de ahorro",credito:"Tarjeta de crédito",linea:"Línea de crédito"};
+const BAN_BANCOS=["Banco de Chile","BancoEstado","Santander","BCI","Itaú","Scotiabank","BICE","Security","Banco Falabella","Banco Ripley","Banco Consorcio","Banco Internacional","Coopeuch","Tenpo","MACH"];
+let BAN={cuentas:[],resumen:null,movs:[],cargado:false,error:""},BAN_F="todas",BAN_DIAS=30,BAN_REQ=0,BAN_IMP=null;
+const banEsCredito=t=>t==="credito"||t==="linea";
+function banEmpNombre(id){if(id==null)return"Personal";const e=EMPRESAS.find(x=>x.id===id);return e?e.nombre:"Empresa eliminada";}
+async function bancoCargar(){
+  if(DEMO||!TOKEN){BAN={cuentas:[],resumen:null,movs:[],cargado:true,error:"demo"};bancoRender();return;}
+  const mio=++BAN_REQ,q="empresa="+encodeURIComponent(BAN_F);
+  if(!BAN.cargado)bancoRender();
+  try{
+    const [c,r,m]=await Promise.all([api("/banco/cuentas"),api("/banco/resumen?dias="+BAN_DIAS+"&"+q),api("/banco/movimientos?limit=50&"+q)]);
+    if(mio!==BAN_REQ)return;
+    BAN={cuentas:c.cuentas||[],resumen:r,movs:m.movimientos||[],cargado:true,error:"",maxFilas:c.maxFilas||5000};
+  }catch(e){if(mio!==BAN_REQ)return;BAN.cargado=true;BAN.error=e.message;}
+  bancoRender();
+}
+function banSerieHTML(r){
+  let s=r.serie||[];
+  if(r.dias===365){const g=[];for(let i=0;i<s.length;i+=7){const t=s.slice(i,i+7);g.push({dia:t[0].dia,hasta:t[t.length-1].dia,entradas:t.reduce((a,x)=>a+x.entradas,0),salidas:t.reduce((a,x)=>a+x.salidas,0)});}s=g;}
+  if(!s.some(x=>x.entradas||x.salidas))return`<p style="font-size:12.5px;color:var(--text3)">No hay movimientos de cuentas en este periodo (${fmtF(r.desde)} al ${fmtF(r.hasta)}). Sube una cartola más reciente o elige un periodo más largo.</p>`;
+  const max=Math.max(1,...s.map(x=>Math.max(x.entradas,x.salidas))),pc=v=>v?Math.max(3,Math.round(v/max*100)):0;
+  const tt=x=>esc((x.hasta?fmtF(x.dia)+" al "+fmtF(x.hasta):fmtF(x.dia))+": entró "+fmt(x.entradas)+" · salió "+fmt(x.salidas));
+  const fila=(k,col,abajo)=>`<div style="display:flex;align-items:${abajo?"flex-start":"flex-end"};gap:2px;height:64px">${s.map(x=>`<div title="${tt(x)}" style="flex:1;min-width:2px;height:${pc(x[k])}%;background:${col};border-radius:${abajo?"0 0 2px 2px":"2px 2px 0 0"}"></div>`).join("")}</div>`;
+  return`<div style="display:flex;gap:14px;font-size:11.5px;color:var(--text3);margin-bottom:6px"><span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--green);margin-right:4px"></span>Entradas</span><span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--red);margin-right:4px"></span>Salidas</span></div>${fila("entradas","var(--green)",false)}<div style="height:1px;background:var(--border)"></div>${fila("salidas","var(--red)",true)}<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-top:4px"><span>${fmtF(r.desde)}</span><span>${fmtF(r.hasta)}</span></div>`;
+}
+function bancoRender(){
+  const f=document.getElementById("ban-filtro");if(!f)return;
+  f.innerHTML='<option value="todas">Todas las cuentas</option>'+EMPRESAS.map(e=>`<option value="${esc(e.id)}">${esc(e.nombre)}</option>`).join("")+'<option value="personal">Personales (ninguna empresa)</option>';
+  f.value=[...f.options].some(o=>o.value===BAN_F)?BAN_F:"todas";
+  document.getElementById("ban-dias").value=String(BAN_DIAS);
+  const av=document.getElementById("ban-aviso"),met=document.getElementById("ban-metricas"),ser=document.getElementById("ban-serie"),cue=document.getElementById("ban-cuentas"),mov=document.getElementById("ban-movs");
+  const limpiar=()=>{met.innerHTML="";ser.innerHTML="";cue.innerHTML="";mov.innerHTML="";};
+  if(BAN.error==="demo"){limpiar();av.innerHTML=`<div class="card card-pad" style="font-size:13px;color:var(--text2)">Inicia sesión con tu cuenta (no la demo) para registrar tus bancos y tarjetas.</div>`;return;}
+  if(!BAN.cargado){limpiar();av.innerHTML=`<p style="font-size:12.5px;color:var(--text3)">Cargando tus cuentas…</p>`;return;}
+  if(BAN.error){limpiar();av.innerHTML=`<div class="card card-pad" style="font-size:12.5px;color:var(--red)">No se pudieron cargar tus cuentas: ${esc(BAN.error)} <button class="btn btn-sm" style="margin-left:8px" onclick="bancoCargar()">Reintentar</button></div>`;return;}
+  av.innerHTML="";
+  const lista=BAN.cuentas.filter(c=>BAN_F==="todas"||(BAN_F==="personal"?c.empresaId==null:c.empresaId===+BAN_F));
+  if(!BAN.cuentas.length){
+    limpiar();
+    av.innerHTML=`<div class="card card-pad"><div style="font-size:15px;font-weight:500;margin-bottom:6px">Mira el dinero de tus bancos y tarjetas en Vencio</div><div style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:12px">1. Agrega tu cuenta corriente, cuenta vista o tarjeta de crédito (de cualquier banco) y elige a qué empresa pertenece.<br>2. En la web de tu banco, descarga la cartola o el estado de cuenta en Excel o CSV.<br>3. Súbela aquí: Vencio calcula el saldo, lo que entró y lo que salió.</div><button class="btn btn-p" onclick="banAbrirCuenta()">+ Agregar cuenta o tarjeta</button><div style="font-size:11.5px;color:var(--text3);margin-top:10px">🔒 El archivo se lee en tu navegador. A Vencio solo llegan la fecha, la descripción, el monto y el saldo de cada movimiento: nunca tu clave del banco ni tu número de cuenta.</div></div>`;
+    return;
+  }
+  const r=BAN.resumen||{},per=r.dias===365?"12 meses":r.dias+" días";
+  const m=(ico,bg,col,lbl,val,sub,color)=>`<div class="metric"><div class="m-ico" style="background:${bg};color:${col}">${ico}</div><div class="m-lbl">${lbl}</div><div class="m-val" style="font-size:17px${color?";color:"+color:""}">${val}</div><div class="m-sub" style="color:var(--text3)">${sub}</div></div>`;
+  const ef=lista.filter(c=>!banEsCredito(c.tipo)),sinSaldo=ef.filter(c=>c.saldo==null).length;
+  let h=m("🏦","var(--blue-l)","var(--blue)","Saldo en cuentas",ef.length&&sinSaldo<ef.length?fmt(r.saldoCuentas||0):"—",ef.length?(sinSaldo?`${sinSaldo} cuenta${sinSaldo===1?"":"s"} sin saldo informado`:"Según la última cartola de cada cuenta"):"Sin cuentas en este filtro")
+   +m("⬆️","var(--green-l)","var(--green)","Entradas ("+per+")",fmt(r.entradas||0),"Abonos y depósitos")
+   +m("⬇️","var(--red-l)","var(--red)","Salidas ("+per+")",fmt(r.salidas||0),"Cargos, giros y pagos")
+   +m("⚖️","var(--purple-l)","var(--purple)","Resultado ("+per+")",((r.neto||0)<0?"−":"")+fmt(Math.abs(r.neto||0)),!(r.entradas||r.salidas)?"Sin movimientos en el periodo":(r.neto||0)>=0?"Entró más de lo que salió":"Salió más de lo que entró",(r.neto||0)<0?"var(--red)":"var(--green)");
+  if(r.tarjetas)h+=m("💳","var(--amber-l)","var(--amber)","Deuda en tarjetas",fmt(r.deudaTarjetas||0),"Gastado con tarjetas ("+per+"): "+fmt(r.gastadoTarjetas||0));
+  met.innerHTML=h;
+  ser.innerHTML=banSerieHTML(r)+(r.tarjetas?`<p style="font-size:11.5px;color:var(--text3);margin-top:8px">ℹ️ Las compras con tarjeta de crédito se muestran aparte («Gastado con tarjetas»), para no contar dos veces el mismo gasto cuando pagas la tarjeta desde tu cuenta.</p>`:"");
+  cue.innerHTML=lista.length?lista.map(c=>{
+    const cr=banEsCredito(c.tipo);
+    const imps=(c.importaciones||[]).map(i=>`<div style="font-size:11.5px;color:var(--text3);margin-top:3px">📄 ${esc(i.archivo||"Archivo")} · ${i.nuevas} nuevo${i.nuevas===1?"":"s"} · ${esc(fmtF((i.fecha||"").slice(0,10)))} · <a href="#" onclick="banDeshacer(${i.id});return false" style="color:var(--blue)">Deshacer</a></div>`).join("");
+    return`<div style="display:flex;gap:12px;padding:12px 0;border-top:.5px solid var(--border);flex-wrap:wrap;align-items:flex-start"><div style="font-size:22px;line-height:1">${cr?"💳":"🏦"}</div><div style="flex:1;min-width:190px"><div style="font-size:14px;font-weight:500">${esc(c.nombre)}</div><div style="font-size:12px;color:var(--text3)">${esc(BAN_TIPOS[c.tipo]||c.tipo)}${c.banco?" · "+esc(c.banco):""} · 🏢 ${esc(banEmpNombre(c.empresaId))}</div><div style="font-size:12px;color:var(--text3);margin-top:3px">${c.movimientos?`${c.movimientos} movimiento${c.movimientos===1?"":"s"} · del ${fmtF(c.desde)} al ${fmtF(c.hasta)}`:"Aún no subes su cartola"}</div>${imps}</div><div style="text-align:right;min-width:130px"><div style="font-size:11.5px;color:var(--text3)">${cr?"Deuda":"Saldo"}</div><div style="font-size:17px;font-weight:500">${c.saldo==null?"—":fmt(c.saldo)}</div><div style="font-size:11px;color:var(--text3)">${c.saldoFecha?"al "+fmtF(c.saldoFecha):"sin informar"}</div></div><div style="display:flex;gap:6px;flex-wrap:wrap;width:100%;justify-content:flex-end"><button class="btn btn-p btn-sm" onclick="banAbrirImport(${c.id})">Subir cartola</button><button class="btn btn-sm" onclick="banAbrirCuenta(${c.id})">Editar</button><button class="btn btn-sm" onclick="banBorrarCuenta(${c.id})">Eliminar</button></div></div>`;
+  }).join(""):`<p style="font-size:12.5px;color:var(--text3)">No hay cuentas en este filtro.</p>`;
+  mov.innerHTML=BAN.movs.length?BAN.movs.map(x=>`<div style="display:flex;gap:10px;padding:8px 0;border-top:.5px solid var(--border);font-size:12.5px;align-items:center"><span style="color:var(--text3);min-width:78px">${fmtF(x.fecha)}</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(x.descripcion||"")}">${esc(x.descripcion||"Movimiento")} <span style="color:var(--text3)">· ${esc(x.cuenta)}</span></span><span style="font-weight:500;white-space:nowrap;color:${x.monto>0?"var(--green)":"var(--red)"}">${x.monto>0?"+":"−"}${fmt(Math.abs(x.monto))}</span></div>`).join(""):`<p style="font-size:12.5px;color:var(--text3)">Aún no hay movimientos. Usa «Subir cartola» en una de tus cuentas.</p>`;
+}
+function banFiltro(v){BAN_F=v;bancoCargar();}
+function banPeriodo(v){BAN_DIAS=+v||30;bancoCargar();}
+function banAbrirCuenta(id){
+  if(DEMO||!TOKEN){alert("Inicia sesión con una cuenta real (no la demo) para registrar tus bancos y tarjetas.");return;}
+  const c=id?BAN.cuentas.find(x=>x.id===id):null;
+  document.getElementById("bc-titulo").firstChild.textContent=c?"Editar cuenta o tarjeta ":"Agregar cuenta o tarjeta ";
+  document.getElementById("bc-id").value=c?c.id:"";
+  document.getElementById("bc-nombre").value=c?c.nombre:"";
+  document.getElementById("bc-banco").value=c&&c.banco?c.banco:"";
+  document.getElementById("bc-bancos").innerHTML=BAN_BANCOS.map(b=>`<option value="${esc(b)}">`).join("");
+  const t=document.getElementById("bc-tipo");t.innerHTML=Object.entries(BAN_TIPOS).map(([k,v])=>`<option value="${k}">${esc(v)}</option>`).join("");t.value=c?c.tipo:"corriente";
+  const e=document.getElementById("bc-empresa");
+  e.innerHTML='<option value="0">Ninguna (es personal)</option>'+EMPRESAS.map(x=>`<option value="${esc(x.id)}">${esc(x.nombre)}</option>`).join("");
+  e.value=c?(c.empresaId!=null&&EMPRESAS.some(x=>x.id===c.empresaId)?String(c.empresaId):"0"):(BAN_F!=="todas"&&BAN_F!=="personal"?BAN_F:"0");
+  document.getElementById("modal-banco-cuenta").classList.add("open");
+  setTimeout(()=>document.getElementById("bc-nombre").focus(),50);
+}
+async function banGuardarCuenta(){
+  const id=document.getElementById("bc-id").value,b=document.getElementById("bc-btn");
+  const datos={nombre:document.getElementById("bc-nombre").value.trim(),banco:document.getElementById("bc-banco").value.trim(),tipo:document.getElementById("bc-tipo").value,empresaId:parseInt(document.getElementById("bc-empresa").value)||null};
+  if(!datos.nombre){alert("Ponle un nombre a la cuenta (por ejemplo: Cuenta corriente BancoEstado).");return;}
+  b.disabled=true;
+  try{
+    const r=id?await api("/banco/cuentas/"+id,"PUT",datos):await api("/banco/cuentas","POST",datos);
+    cerrar("modal-banco-cuenta");await bancoCargar();
+    if(!id&&r.id&&confirm("✓ Cuenta agregada. ¿Quieres subir su cartola ahora?"))banAbrirImport(r.id);
+  }catch(e){alert("No se pudo guardar: "+e.message);}
+  b.disabled=false;
+}
+async function banBorrarCuenta(id){
+  const c=BAN.cuentas.find(x=>x.id===id);if(!c)return;
+  if(!confirm(`¿Eliminar «${c.nombre}»${c.movimientos?` y sus ${c.movimientos} movimientos`:""}? Esto no se puede deshacer.`))return;
+  try{await api("/banco/cuentas/"+id,"DELETE");await bancoCargar();}catch(e){alert("No se pudo eliminar: "+e.message);}
+}
+async function banDeshacer(impId){
+  if(!confirm("¿Deshacer esta importación? Se borran los movimientos que trajo ese archivo."))return;
+  try{const r=await api("/banco/importaciones/"+impId,"DELETE");await bancoCargar();alert(`Listo: se borraron ${r.borrados} movimiento${r.borrados===1?"":"s"}.`);}catch(e){alert("No se pudo deshacer: "+e.message);}
+}
+
+// ── Lectura de la cartola ──
+const BAN_RX={fecha:/fecha/i,desc:/descrip|detalle|glosa|concepto|movimiento|transacci|comercio/i,cargo:/cargo|d[eé]bito|giro|egreso|retiro/i,abono:/abono|cr[eé]dito|dep[oó]sito|ingreso/i,monto:/monto|importe|valor/i,saldo:/saldo/i};
+const BAN_MESES={ene:1,feb:2,mar:3,abr:4,may:5,jun:6,jul:7,ago:8,sep:9,set:9,oct:10,nov:11,dic:12,jan:1,apr:4,aug:8,dec:12};
+function banFecha(v){
+  const hoy=gHoy();
+  const ok=(y,mo,d)=>{if(y<100)y+=2000;const dt=new Date(Date.UTC(y,mo-1,d));if(isNaN(dt)||dt.getUTCFullYear()!==y||dt.getUTCMonth()!==mo-1||dt.getUTCDate()!==d)return null;const s=dt.toISOString().slice(0,10);return s>="2000-01-01"&&s<=hoy?s:null;};
+  if(typeof v==="number"){if(v>36525&&v<73051){const dt=new Date(Date.UTC(1899,11,30)+Math.floor(v+0.0007)*86400000);/* +1 min: algunos programas guardan la medianoche unos segundos antes */return ok(dt.getUTCFullYear(),dt.getUTCMonth()+1,dt.getUTCDate());}return null;}
+  if(v instanceof Date)return isNaN(v)?null:ok(v.getFullYear(),v.getMonth()+1,v.getDate());
+  const s=String(v==null?"":v).trim().toLowerCase();if(!s)return null;
+  let x=s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})(?!\d)/);if(x)return ok(+x[1],+x[2],+x[3]);
+  x=s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2}|\d{4})(?!\d)/);if(x)return ok(+x[3],+x[2],+x[1]);
+  x=s.match(/^(\d{1,2})[-\/. ]([a-zé]{3})[a-zé]*\.?[-\/. ](\d{2}|\d{4})(?!\d)/);if(x&&BAN_MESES[x[2]])return ok(+x[3],BAN_MESES[x[2]],+x[1]);
+  x=s.match(/^(\d{1,2})[-\/.](\d{1,2})$/);if(x){const y=+hoy.slice(0,4);return ok(y,+x[2],+x[1])||ok(y-1,+x[2],+x[1]);}
+  return null;
+}
+function banMonto(v){
+  if(typeof v==="number")return isFinite(v)?Math.round(v):null;
+  let s=String(v==null?"":v).replace(/[\s ]/g,"");if(!s)return null;
+  let neg=false;
+  if(/^\(.*\)$/.test(s)){neg=true;s=s.slice(1,-1);}
+  s=s.replace(/^(clp|us\$|usd|\$)+/i,"");
+  if(s.startsWith("-")){neg=!neg;s=s.slice(1);}else if(s.endsWith("-")){neg=!neg;s=s.slice(0,-1);}
+  if(s.startsWith("+"))s=s.slice(1);
+  s=s.replace(/^(clp|us\$|usd|\$)+/i,"").replace(/(clp|usd)$/i,"");
+  if(!/^[\d.,]+$/.test(s)||!/\d/.test(s))return null;
+  const ip=s.lastIndexOf("."),ic=s.lastIndexOf(",");let n;
+  if(ip>=0&&ic>=0){const dec=ip>ic?".":",",mil=dec==="."?",":".";n=parseFloat(s.split(mil).join("").replace(dec,"."));}
+  else if(ic>=0)n=/^\d{1,3}(,\d{3})+$/.test(s)?parseFloat(s.replace(/,/g,"")):(s.split(",").length===2?parseFloat(s.replace(",",".")):NaN);
+  else if(ip>=0)n=/^\d{1,3}(\.\d{3})+$/.test(s)?parseFloat(s.replace(/\./g,"")):(s.split(".").length===2?parseFloat(s):NaN);
+  else n=parseFloat(s);
+  if(!isFinite(n))return null;n=Math.round(n);return neg?-n:n;
+}
+function banParseCSV(txt){
+  const lineas=txt.split(/\r\n|\n|\r/).filter(l=>l.trim()).slice(0,60);
+  const partir=(l,sep)=>{let n=1,q=false;for(let i=0;i<l.length;i++){const ch=l[i];if(ch==='"')q=!q;else if(ch===sep&&!q)n++;}return n;};
+  let sep=",",mejor=0;
+  for(const c of [";",",","\t","|"]){
+    const ns=lineas.map(l=>partir(l,c)).filter(n=>n>1);if(!ns.length)continue;
+    const fr=new Map();ns.forEach(n=>fr.set(n,(fr.get(n)||0)+1));
+    const [moda,veces]=[...fr].sort((a,b)=>b[1]-a[1]||b[0]-a[0])[0];
+    if(veces*moda>mejor){mejor=veces*moda;sep=c;}
+  }
+  const out=[];let fila=[],campo="",q=false;
+  for(let i=0;i<txt.length;i++){const ch=txt[i];
+    if(q){if(ch==='"'){if(txt[i+1]==='"'){campo+='"';i++;}else q=false;}else campo+=ch;}
+    else if(ch==='"')q=true;
+    else if(ch===sep){fila.push(campo);campo="";}
+    else if(ch==="\n"||ch==="\r"){if(ch==="\r"&&txt[i+1]==="\n")i++;fila.push(campo);campo="";if(fila.some(v=>v.trim()!==""))out.push(fila);fila=[];}
+    else campo+=ch;}
+  fila.push(campo);if(fila.some(v=>v.trim()!==""))out.push(fila);
+  return out.map(r=>r.map(v=>v.trim()));
+}
+let BAN_XLSX_P=null;
+function banCargarXLSX(){
+  if(window.XLSX)return Promise.resolve(window.XLSX);
+  if(BAN_XLSX_P)return BAN_XLSX_P;
+  // Primero la versión oficial vigente; si esa web no responde, una copia en cdnjs.
+  const urls=["https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js","https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"];
+  const una=u=>new Promise((ok,ko)=>{const s=document.createElement("script");s.src=u;s.async=true;s.onload=()=>window.XLSX?ok(window.XLSX):ko(new Error("x"));s.onerror=()=>{s.remove();ko(new Error("x"));};document.head.appendChild(s);});
+  BAN_XLSX_P=urls.reduce((p,u)=>p.catch(()=>una(u)),Promise.reject(new Error("x"))).catch(()=>{BAN_XLSX_P=null;throw new Error("no se pudo cargar el lector de Excel. Revisa tu conexión, o guarda la cartola como CSV y súbela de nuevo.");});
+  return BAN_XLSX_P;
+}
+async function banLeerArchivo(f){
+  const buf=await f.arrayBuffer(),u8=new Uint8Array(buf.slice(0,4)),ext=(f.name.split(".").pop()||"").toLowerCase();
+  const binario=(u8[0]===0x50&&u8[1]===0x4B)||(u8[0]===0xD0&&u8[1]===0xCF); // xlsx (zip) o xls antiguo
+  let txt=null;
+  if(!binario){try{txt=new TextDecoder("utf-8",{fatal:true}).decode(buf);}catch(e){txt=new TextDecoder("windows-1252").decode(buf);}txt=txt.replace(/^﻿/,"");}
+  const esHTML=txt!=null&&/^\s*(<\?xml[^>]*>\s*)?<(!doctype|html|table|meta|head|body)/i.test(txt);  // muchos bancos entregan una tabla web con extensión .xls
+  if(binario||esHTML||(txt!=null&&["xls","xlsx"].includes(ext)&&/<table/i.test(txt))){
+    const X=await banCargarXLSX();
+    const wb=binario?X.read(buf,{type:"array",raw:true}):X.read(txt,{type:"string",raw:true});
+    let elegida=null;
+    for(const n of wb.SheetNames){const rows=X.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:true,defval:"",blankrows:false});if(!elegida)elegida=rows;if(banDetectarCabecera(rows)>=0){elegida=rows;break;}}
+    return(elegida||[]).map(r=>r.map(v=>v==null?"":(typeof v==="string"?v.trim():v)));
+  }
+  return banParseCSV(txt);
+}
+function banDetectarCabecera(rows){
+  let mejor=-1,ms=0;
+  for(let i=0;i<Math.min(rows.length,40);i++){
+    const t=(rows[i]||[]).map(v=>typeof v==="string"?v.trim():"").filter(v=>v&&v.length<40);
+    let s=t.some(v=>BAN_RX.fecha.test(v))?2:0;
+    for(const k of ["desc","cargo","abono","monto","saldo"])if(t.some(v=>BAN_RX[k].test(v)))s++;
+    if(s>ms){ms=s;mejor=i;}
+  }
+  return ms>=3?mejor:-1;
+}
+function banAdivinar(rows,cab){
+  if(cab>=0){
+    const t=(rows[cab]||[]).map(v=>String(v==null?"":v).trim()),b=rx=>t.findIndex(v=>v&&v.length<40&&rx.test(v));
+    let fecha=t.findIndex(v=>/^fecha$/i.test(v));if(fecha<0)fecha=b(BAN_RX.fecha);
+    const g={fecha,desc:b(BAN_RX.desc),cargo:b(BAN_RX.cargo),abono:b(BAN_RX.abono),monto:b(BAN_RX.monto),saldo:b(BAN_RX.saldo)};
+    if(g.cargo===g.abono)g.abono=-1;
+    if(g.desc===g.fecha)g.desc=-1;
+    g.modo=g.cargo>=0&&g.abono>=0?"dos":"una";
+    if(g.modo==="una"&&g.monto<0)g.monto=g.cargo>=0?g.cargo:g.abono;
+    return g;
+  }
+  // Sin fila de títulos: se adivina por el contenido de cada columna
+  const datos=rows.slice(0,60),n=Math.max(0,...datos.map(r=>r.length)),sc=[];
+  for(let j=0;j<n;j++){let fe=0,nu=0,tx=0;for(const r of datos){const v=r[j];if(typeof v!=="number"&&banFecha(v))fe++;else if(banMonto(v)!=null)nu++;else if(String(v==null?"":v).trim().length>3)tx++;}sc.push({j,fe,nu,tx});}
+  const top=k=>{const s=[...sc].sort((a,b)=>b[k]-a[k])[0];return s&&s[k]>0?s.j:-1;};
+  const fecha=top("fe"),nums=sc.filter(s=>s.j!==fecha&&s.nu>0).sort((a,b)=>b.nu-a.nu);
+  return{fecha,desc:top("tx"),monto:nums[0]?nums[0].j:-1,cargo:-1,abono:-1,saldo:-1,modo:"una"};
+}
+function banAbrirImport(id){
+  const c=BAN.cuentas.find(x=>x.id===id);if(!c)return;
+  BAN_IMP={cuenta:c,rows:null,cab:-1,archivo:"",sfEditado:false,res:null};
+  document.getElementById("bi-cuenta").textContent=c.nombre+(c.banco?" · "+c.banco:"");
+  document.getElementById("bi-file").value="";
+  document.getElementById("bi-paso2").style.display="none";
+  document.getElementById("bi-estado").textContent="";
+  const ok=document.getElementById("bi-ok");ok.disabled=true;ok.textContent="Importar";
+  document.getElementById("bi-ayuda").innerHTML=banEsCredito(c.tipo)
+    ?"En la web de tu banco, entra a tu tarjeta y descarga el <b>estado de cuenta</b> o los <b>movimientos facturados / no facturados</b> en Excel o CSV."
+    :"En la web de tu banco, entra a tu cuenta y descarga la <b>cartola</b> o los <b>últimos movimientos</b> en Excel o CSV.";
+  document.getElementById("modal-banco-import").classList.add("open");
+}
+async function banArchivoElegido(inp){
+  const f=inp.files&&inp.files[0];if(!f||!BAN_IMP)return;
+  const st=document.getElementById("bi-estado");st.style.color="var(--text3)";st.textContent="Leyendo el archivo…";
+  document.getElementById("bi-paso2").style.display="none";document.getElementById("bi-ok").disabled=true;
+  try{
+    if(f.size>15*1024*1024)throw new Error("el archivo pesa más de 15 MB");
+    const rows=await banLeerArchivo(f);
+    if(!rows.length)throw new Error("el archivo está vacío");
+    BAN_IMP.rows=rows;BAN_IMP.archivo=f.name;BAN_IMP.sfEditado=false;
+    BAN_IMP.cab=banDetectarCabecera(rows);
+    const sc=document.getElementById("bi-cab");
+    sc.innerHTML='<option value="-1">No tiene fila de títulos</option>'+rows.slice(0,25).map((r,i)=>`<option value="${i}">Fila ${i+1}: ${esc(r.filter(v=>String(v).trim()!=="").slice(0,4).join(" · ").slice(0,70))}</option>`).join("");
+    sc.value=String(BAN_IMP.cab);
+    banAplicarCabecera();st.textContent="";
+  }catch(e){st.style.color="var(--red)";st.textContent="No se pudo leer: "+e.message;}
+}
+function banAplicarCabecera(){
+  const I=BAN_IMP;if(!I||!I.rows)return;
+  I.cab=parseInt(document.getElementById("bi-cab").value);if(isNaN(I.cab))I.cab=-1;
+  const n=Math.max(0,...I.rows.slice(Math.max(0,I.cab),I.cab+80).map(r=>r.length));
+  const letra=j=>j<26?String.fromCharCode(65+j):"C"+(j+1);
+  const nombres=[...Array(n)].map((_,j)=>{const v=I.cab>=0?String((I.rows[I.cab]||[])[j]==null?"":(I.rows[I.cab]||[])[j]).trim():"";return v?v.slice(0,40):"Columna "+letra(j);});
+  const opts='<option value="-1">— Ninguna —</option>'+nombres.map((v,j)=>`<option value="${j}">${esc(v)}</option>`).join("");
+  ["bi-fecha","bi-desc","bi-cargo","bi-abono","bi-monto","bi-saldo"].forEach(id=>document.getElementById(id).innerHTML=opts);
+  const g=banAdivinar(I.rows,I.cab);
+  document.getElementById("bi-fecha").value=g.fecha;document.getElementById("bi-desc").value=g.desc;
+  document.getElementById("bi-cargo").value=g.cargo;document.getElementById("bi-abono").value=g.abono;
+  document.getElementById("bi-monto").value=g.monto;document.getElementById("bi-saldo").value=g.saldo;
+  document.getElementById("bi-modo").value=g.modo;
+  // En los estados de tarjeta las compras suelen venir en positivo: se invierte de entrada, y la vista previa permite revisarlo
+  document.getElementById("bi-inv").checked=banEsCredito(I.cuenta.tipo)&&g.modo==="una";
+  document.getElementById("bi-paso2").style.display="";
+  banModo();
+}
+function banModo(){const dos=document.getElementById("bi-modo").value==="dos";document.getElementById("bi-dos").style.display=dos?"":"none";document.getElementById("bi-una").style.display=dos?"none":"";banPrevia();}
+function banConvertir(){
+  const I=BAN_IMP,v=id=>parseInt(document.getElementById(id).value),cfg={fecha:v("bi-fecha"),desc:v("bi-desc"),cargo:v("bi-cargo"),abono:v("bi-abono"),monto:v("bi-monto"),saldo:v("bi-saldo"),modo:document.getElementById("bi-modo").value,inv:document.getElementById("bi-inv").checked};
+  const movs=[];let omitidas=0;
+  if(cfg.fecha<0||(cfg.modo==="dos"?(cfg.cargo<0&&cfg.abono<0):cfg.monto<0))return{movs,omitidas:0,falta:true};
+  for(const r of I.rows.slice(I.cab+1)){
+    const fecha=banFecha(r[cfg.fecha]);let monto=null;
+    if(cfg.modo==="dos"){const c=cfg.cargo>=0?banMonto(r[cfg.cargo]):null,a=cfg.abono>=0?banMonto(r[cfg.abono]):null;if(c!=null||a!=null)monto=Math.abs(a||0)-Math.abs(c||0);}
+    else monto=banMonto(r[cfg.monto]);
+    if(monto&&cfg.inv)monto=-monto;
+    if(!fecha||!monto){if(r.some(x=>String(x).trim()!==""))omitidas++;continue;}
+    movs.push({fecha,descripcion:cfg.desc>=0?String(r[cfg.desc]==null?"":r[cfg.desc]).replace(/\s+/g," ").trim().slice(0,160):"",monto,saldo:cfg.saldo>=0?banMonto(r[cfg.saldo]):null});
+  }
+  let saldoFinal=null;
+  const conSaldo=movs.filter(x=>x.saldo!=null);
+  if(conSaldo.length){
+    const maxF=movs.reduce((a,x)=>x.fecha>a?x.fecha:a,""),asc=movs[0].fecha<=movs[movs.length-1].fecha,delDia=conSaldo.filter(x=>x.fecha===maxF);
+    const u=delDia.length?(asc?delDia[delDia.length-1]:delDia[0]):null;if(u)saldoFinal={monto:u.saldo,fecha:maxF};
+  }
+  return{movs,omitidas,saldoFinal};
+}
+function banPrevia(){
+  const I=BAN_IMP;if(!I||!I.rows)return;
+  const R=banConvertir(),p=document.getElementById("bi-previa"),ok=document.getElementById("bi-ok"),max=BAN.maxFilas||5000,cr=banEsCredito(I.cuenta.tipo);
+  I.res=R;
+  document.getElementById("bi-sf-lbl").textContent=cr?"Deuda de la tarjeta al":"Saldo de la cuenta al";
+  if(!I.sfEditado){const sf=R.saldoFinal;document.getElementById("bi-sf-monto").value=sf?sf.monto:"";document.getElementById("bi-sf-fecha").value=sf?sf.fecha:(R.movs.length?R.movs.reduce((a,x)=>x.fecha>a?x.fecha:a,""):gHoy());}
+  if(R.falta){p.innerHTML=`<p style="font-size:12.5px;color:var(--amber);margin:8px 0">Elige al menos la columna de fecha y la del monto.</p>`;ok.disabled=true;ok.textContent="Importar";return;}
+  if(!R.movs.length){p.innerHTML=`<p style="font-size:12.5px;color:var(--amber);margin:8px 0">No se encontraron movimientos con fecha y monto. Revisa la fila de títulos y las columnas elegidas.</p>`;ok.disabled=true;ok.textContent="Importar";return;}
+  const ent=R.movs.filter(x=>x.monto>0).reduce((a,x)=>a+x.monto,0),sal=R.movs.filter(x=>x.monto<0).reduce((a,x)=>a-x.monto,0);
+  const fs=R.movs.map(x=>x.fecha).sort();
+  p.innerHTML=`<div style="font-size:12.5px;color:var(--text2);margin:10px 0 6px"><b>${R.movs.length}</b> movimiento${R.movs.length===1?"":"s"} del ${fmtF(fs[0])} al ${fmtF(fs[fs.length-1])} · <span style="color:var(--green)">entradas ${fmt(ent)}</span> · <span style="color:var(--red)">salidas ${fmt(sal)}</span>${R.omitidas?` · ${R.omitidas} fila${R.omitidas===1?"":"s"} sin fecha o monto se omite${R.omitidas===1?"":"n"} (títulos, totales o saldos)`:""}</div>
+  ${R.movs.length>max?`<p style="font-size:12.5px;color:var(--red)">Son más de ${max} movimientos: descarga un periodo más corto.</p>`:""}
+  <div style="border:.5px solid var(--border);border-radius:8px;overflow:hidden;font-size:12px">${R.movs.slice(0,8).map(x=>`<div style="display:flex;gap:8px;padding:6px 10px;border-top:.5px solid var(--border)"><span style="min-width:74px;color:var(--text3)">${fmtF(x.fecha)}</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.descripcion||"—")}</span><span style="white-space:nowrap;font-weight:500;color:${x.monto>0?"var(--green)":"var(--red)"}">${x.monto>0?"Entrada +":"Salida −"}${fmt(Math.abs(x.monto))}</span></div>`).join("")}</div>
+  <div style="font-size:11.5px;color:var(--text3);margin-top:6px">Revisa que los cargos y compras aparezcan como <span style="color:var(--red)">salidas</span> y los depósitos como <span style="color:var(--green)">entradas</span>. Si están al revés, marca «Invertir entradas y salidas».</div>`;
+  ok.disabled=R.movs.length>max;ok.textContent=`Importar ${R.movs.length} movimiento${R.movs.length===1?"":"s"}`;
+}
+async function banImportar(){
+  const I=BAN_IMP;if(!I||!I.res||!I.res.movs.length)return;
+  const b=document.getElementById("bi-ok"),mt=document.getElementById("bi-sf-monto").value.trim(),fe=document.getElementById("bi-sf-fecha").value;
+  let saldoFinal=null;
+  if(mt!==""){const n=banMonto(mt);if(n==null||!fe){alert("Revisa el saldo final: monto y fecha.");return;}saldoFinal={monto:n,fecha:fe};}
+  b.disabled=true;const txt=b.textContent;b.textContent="Importando…";
+  try{
+    const r=await api("/banco/cuentas/"+I.cuenta.id+"/importar","POST",{archivo:I.archivo,movimientos:I.res.movs,saldoFinal});
+    cerrar("modal-banco-import");await bancoCargar();
+    alert(r.nuevas?`✓ Se importaron ${r.nuevas} movimiento${r.nuevas===1?"":"s"} nuevo${r.nuevas===1?"":"s"}.${r.repetidas?` ${r.repetidas} ya estaba${r.repetidas===1?"":"n"} y no se duplicaron.`:""}`:(r.saldoActualizado?"✓ Saldo actualizado. Todos los movimientos de este archivo ya estaban guardados.":"Todos los movimientos de este archivo ya estaban guardados: no se agregó nada."));
+  }catch(e){alert("No se pudo importar: "+e.message);b.textContent=txt;}
+  b.disabled=false;
+}
 
 // ═══════════════════════════
 // INTEGRACIONES
@@ -2208,6 +2564,7 @@ const TB={
   grafico:['Analisis financiero','Graficos de rendimiento y evolucion de cobros'],
   finanzas:['Finanzas por empresa','Ingresos, costos y ganancia neta de cada negocio'],
   gastos:['Gastos','Cuánto se ha gastado, por día, semana, mes y categoría'],
+  bancos:['Bancos y tarjetas','Saldo, entradas y salidas de tus cuentas y tarjetas'],
   calendario:['Calendario de vencimientos','Vista mensual de todos los proximos vencimientos'],
   clientes:['Clientes','Administra todos tus clientes y suscripciones'],
   alertas:['Alertas','Notificaciones en tiempo real de pagos y vencimientos'],
@@ -2233,6 +2590,7 @@ function mostrarSeccion(el,sec){
   if(sec==='grafico')setTimeout(()=>renderGraficos(),80);
   if(sec==='finanzas')renderFinanzas();
   if(sec==='gastos')renderGastos();
+  if(sec==='bancos')bancoCargar();
   if(sec==='integraciones')mpCargarCuenta();
   if(sec==='calendario')renderCalendario();
   if(sec==='planes')cargarEstadoPrueba();
@@ -2292,7 +2650,7 @@ function dRel(n){const d=new Date();d.setDate(d.getDate()+n);return d.toISOStrin
 const OFFS={1:-31,2:15,3:-40,4:20,5:10,6:-36,7:6,8:8};
 CLIENTES.forEach(c=>{if(OFFS[c.id]!==undefined)c.proximoVenc=dRel(OFFS[c.id]);});
 function refreshUser(){['av-sb','av-top'].forEach(id=>document.getElementById(id).textContent=CONFIG.iniciales);document.getElementById('sb-nombre').textContent=CONFIG.nombre;document.getElementById('cfg-nombre').value=CONFIG.nombre;}
-function refreshActive(){const s=document.querySelector('.sec.active')?.id;if(s==='s-grafico')renderGraficos();if(s==='s-finanzas')renderFinanzas();if(s==='s-gastos')renderGastos();if(s==='s-calendario')renderCalendario();}
+function refreshActive(){const s=document.querySelector('.sec.active')?.id;if(s==='s-grafico')renderGraficos();if(s==='s-finanzas')renderFinanzas();if(s==='s-gastos')renderGastos();if(s==='s-bancos')bancoRender();if(s==='s-calendario')renderCalendario();}
 function copiarLink(b){const t='https://pay.vencio.cl/c/a1b2c3d4';Promise.resolve(navigator.clipboard&&navigator.clipboard.writeText(t)).catch(()=>{}).finally(()=>{b.textContent='¡Copiado!';setTimeout(()=>b.textContent='Copiar link',1500);});}
 // ═══════════════════════════
 // NAVEGACIÓN E HISTORIAL
