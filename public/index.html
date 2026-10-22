@@ -748,6 +748,7 @@ html[data-sesion="1"] .lp-solo-visita{display:none!important}
       <div class="sec active" id="s-dashboard">
         <div class="ctabs" id="emp-tabs"></div>
         <div class="metrics" id="metrics-row"></div>
+        <div id="mp-dash"></div>
         <div class="abanner" id="alert-banner"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span id="alert-txt"></span><span class="alink" onclick="navTo(document.querySelector('[onclick*=alertas]'),'alertas')">Ver todas →</span><button type="button" title="Cerrar este aviso" aria-label="Cerrar este aviso" onclick="cerrarAvisoMora()" style="background:none;border:none;color:inherit;cursor:pointer;font-size:16px;line-height:1;padding:2px 4px;margin-left:2px;flex-shrink:0">✕</button></div>
         <div class="two-col">
           <div class="card">
@@ -1148,6 +1149,7 @@ const CLIENTES=[
 const GASTOS=[];
 const SALDOS=[];
 let MP_SERIE=[];
+let MP_DATOS=null,MP_ERR=null; // última lectura de la cuenta de Mercado Pago asociada a una empresa (para Dashboard y Finanzas)
 const VENTAS=[
   {id:1,empresa:1,cliente:"Ana Torres",concepto:"Cuota mensual",tipo:"cuota",monto:320000,costo:180000,fecha:"2026-04-30",metodoPago:"transferencia"},
   {id:2,empresa:1,cliente:"Diego Vega",concepto:"Suscripcion premium",tipo:"membresia",monto:540000,costo:210000,fecha:"2026-05-10",metodoPago:"tarjeta"},
@@ -1417,6 +1419,7 @@ function renderMetrics(){
     <div class="metric"><div class="m-ico" style="background:var(--green-l);color:var(--green)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div><div class="m-lbl">Al dia</div><div class="m-val">${alDia}</div><div class="m-sub" style="color:var(--green)">${lista.length?Math.round(alDia/lista.length*100):0}%</div></div>
     <div class="metric"><div class="m-ico" style="background:var(--red-l);color:var(--red)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div><div class="m-lbl">Vencidas</div><div class="m-val">${venc}</div><div class="m-sub" style="color:${rRojo>0?"var(--red)":"var(--text3)"}">🔴 ${rRojo} riesgo alto</div></div>
     <div class="metric"><div class="m-ico" style="background:var(--purple-l);color:var(--purple)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2h16v20l-2-1-2 1-2-1-2 1-2-1-2 1-2-1-2 1V2z"/><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="17.5" r="1.5"/></svg></div><div class="m-lbl">IVA mes</div><div class="m-val" style="font-size:17px">${fmt(iva)}</div><div class="m-sub" style="color:var(--text3)">${CONFIG.ivaPorc}% productos</div></div>`;
+  renderMpDash();
 }
 
 // ═══════════════════════════
@@ -1920,7 +1923,7 @@ async function mpProbarReportes(generar){
     r.innerHTML=d.resultados.map(x=>`<div style="padding:6px 0;border-top:.5px solid var(--border)"><span style="font-weight:500;color:${x.ok?"var(--green)":"var(--red)"}">${x.ok?"✓ Permitido":"✕ No permitido"}</span> · ${esc(x.nombre)} <span style="color:var(--text3)">(código ${x.http})</span>${x.mensaje?`<div style="color:var(--text3);margin-top:2px">Mercado Pago dijo: ${esc(x.mensaje)}</div>`:""}${x.ok&&x.cantidad!=null?`<div style="color:var(--text3);margin-top:2px">Reportes en la lista: ${x.cantidad}</div>`:""}</div>`).join("")+'<div style="color:var(--text3);margin-top:8px">Hora de la prueba: '+esc(new Date(d.momento).toLocaleString("es-CL"))+'</div>';
   }catch(e){r.innerHTML=`<span style="color:var(--red)">${esc(e.message)}</span>`;}
 }
-async function mpDesconectar(){if(!confirm("¿Desconectar tu cuenta de Mercado Pago? Las suscripciones activas seguirán cobrando hasta que las canceles desde tu cuenta de Mercado Pago."))return;try{await api("/mp/desconectar","POST",{});MP_CONECTADO=false;MP_EMP=null;MP_DECIDIDA=false;renderIntegraciones();mpCargarCuenta();}catch(e){alert(e.message);}}
+async function mpDesconectar(){if(!confirm("¿Desconectar tu cuenta de Mercado Pago? Las suscripciones activas seguirán cobrando hasta que las canceles desde tu cuenta de Mercado Pago."))return;try{await api("/mp/desconectar","POST",{});MP_CONECTADO=false;MP_EMP=null;MP_DECIDIDA=false;MP_DATOS=null;MP_ERR=null;renderMpDash();renderIntegraciones();mpCargarCuenta();}catch(e){alert(e.message);}}
 // ═══════════════════════════
 // PAYPAL: conectar / desconectar (cada negocio pega las llaves de su propia app de PayPal)
 // ═══════════════════════════
@@ -1960,20 +1963,22 @@ async function mpCargarCuenta(forzar,pn){
   const p=MP_PAN[pn],cont=document.getElementById(p.cont);if(!cont)return;
   if(pn==="graf"&&MP_CONECTADO&&!DEMO&&TOKEN){
     const st=mpEstadoEmp();
-    if(st==="personal"){p.req++;cont.innerHTML="";return;} // cuenta personal: no se mezcla con las finanzas de las empresas
-    if(st==="pendiente"){p.req++;cont.innerHTML=`<div class="card" style="padding:1rem 1.25rem;margin-bottom:12px;font-size:12.5px;color:var(--text2)">Conectaste Mercado Pago, pero aún no dices a qué empresa pertenece. Elígela para ver aquí sus ingresos reales. <button class="btn btn-sm" style="margin-left:8px" onclick="mpAbrirEmpresa()">Elegir empresa</button></div>`;return;}
+    if(st==="personal"){p.req++;cont.innerHTML="";MP_DATOS=null;MP_ERR=null;renderMpDash();return;} // cuenta personal: no se mezcla con las finanzas de las empresas
+    if(st==="pendiente"){p.req++;MP_DATOS=null;MP_ERR=null;renderMpDash();cont.innerHTML=`<div class="card" style="padding:1rem 1.25rem;margin-bottom:12px;font-size:12.5px;color:var(--text2)">Conectaste Mercado Pago, pero aún no dices a qué empresa pertenece. Elígela para ver aquí sus ingresos reales. <button class="btn btn-sm" style="margin-left:8px" onclick="mpAbrirEmpresa()">Elegir empresa</button></div>`;return;}
     p.tit="Ingresos reales en Mercado Pago · "+EMPRESAS.find(e=>e.id===MP_EMP).nombre;
   }
   const activo=pn==="propia"?MP_PROPIETARIO:MP_CONECTADO;
-  if(DEMO||!TOKEN||!activo){p.req++;cont.innerHTML="";return;}
+  if(DEMO||!TOKEN||!activo){p.req++;cont.innerHTML="";if(pn==="graf"){MP_DATOS=null;MP_ERR=null;renderMpDash();}return;}
   const mio=++p.req;
   if(!cont.innerHTML)cont.innerHTML=`<p style="font-size:12.5px;color:var(--text3)">Consultando tu cuenta de Mercado Pago…</p>`;
   try{const d=await api(p.ruta+"?dias="+p.dias+(forzar?"&forzar=1":""));if(mio===p.req)renderMpCuenta(d,pn);}
-  catch(e){if(mio===p.req)cont.innerHTML=`<div class="card" style="padding:1rem 1.25rem;font-size:12.5px;color:var(--red)">No se pudo leer ${pn==="propia"?"tu cuenta":"tu cuenta"} de Mercado Pago: ${esc(e.message)} <button class="btn-sm" style="margin-left:8px" onclick="mpCargarCuenta(true,'${pn}')">Reintentar</button></div>`;}
+  catch(e){if(mio===p.req&&pn==="graf"){MP_ERR=e.message;renderMpDash();}
+    if(mio===p.req)cont.innerHTML=`<div class="card" style="padding:1rem 1.25rem;font-size:12.5px;color:var(--red)">No se pudo leer ${pn==="propia"?"tu cuenta":"tu cuenta"} de Mercado Pago: ${esc(e.message)} <button class="btn-sm" style="margin-left:8px" onclick="mpCargarCuenta(true,'${pn}')">Reintentar</button></div>`;}
 }
 function renderMpCuenta(d,pn){
   pn=pn||"cuenta";const P=MP_PAN[pn];
   if(pn!=="propia")MP_SERIE=d.serie||[];
+  if(pn==="graf"){MP_DATOS=d;MP_ERR=null;renderMpDash();if(document.querySelector(".sec.active")?.id==="s-finanzas")renderFinanzas();}
   const c=d.cuenta,r=d.resumen,s=d.saldo,m=d.moneda;
   const met=(lbl,val,sub)=>`<div class="metric"><div class="m-lbl">${lbl}</div><div class="m-val" style="font-size:21px">${val}</div><div class="m-sub" style="color:var(--text3)">${sub||"&nbsp;"}</div></div>`;
   let tipo="";
@@ -2002,6 +2007,48 @@ function renderMpCuenta(d,pn){
   if(r&&r.truncado)h+=`<p style="font-size:11.5px;color:var(--text3);margin-bottom:4px">ℹ️ Hay más de 500 pagos en el período: los totales consideran solo los 500 más recientes.</p>`;
   h+=`<p style="font-size:11px;color:var(--text3)">Actualizado a las ${esc(new Date(d.actualizado).toLocaleTimeString("es-CL",{hour:"2-digit",minute:"2-digit"}))}. Se actualiza al abrir esta sección y con el botón Actualizar.</p>`;
   document.getElementById(P.cont).innerHTML=h;
+}
+
+// Resumen de Mercado Pago dentro del Dashboard: solo si la cuenta está asociada a una empresa (y se mira "Todas" o esa empresa).
+function renderMpDash(){
+  const el=document.getElementById("mp-dash");if(!el)return;
+  el.innerHTML="";
+  if(DEMO||!TOKEN||!MP_CONECTADO)return;
+  const st=mpEstadoEmp();
+  if(st==="personal")return; // cuenta personal: no se mezcla con las finanzas de las empresas
+  if(st==="pendiente"){el.innerHTML=`<div class="card" style="padding:1rem 1.25rem;margin-bottom:14px;font-size:12.5px;color:var(--text2)">Conectaste Mercado Pago, pero aún no dices a qué empresa pertenece. Elígela para ver aquí sus ingresos reales. <button class="btn btn-sm" style="margin-left:8px" onclick="mpAbrirEmpresa()">Elegir empresa</button></div>`;return;}
+  if(empFiltro!==0&&empFiltro!==MP_EMP)return;
+  const emp=EMPRESAS.find(e=>e.id===MP_EMP);
+  const cab=(extra)=>`<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px"><div style="font-size:13.5px;font-weight:500">Mercado Pago · ${esc(emp?emp.nombre:"")}${extra||""}</div><span class="alink" onclick="navTo(document.querySelector('[onclick*=grafico]'),'grafico')">Ver detalle →</span></div>`;
+  if(!MP_DATOS){
+    el.innerHTML=`<div style="margin-bottom:14px">${cab("")}${MP_ERR?`<div class="card" style="padding:1rem 1.25rem;font-size:12.5px;color:var(--red)">No se pudo leer tu cuenta de Mercado Pago: ${esc(MP_ERR)} <button class="btn-sm" style="margin-left:8px" onclick="mpCargarCuenta(true,'graf')">Reintentar</button></div>`:`<p style="font-size:12.5px;color:var(--text3)">Consultando tu cuenta de Mercado Pago…</p>`}</div>`;
+    return;
+  }
+  const d=MP_DATOS,r=d.resumen,s=d.saldo,m=d.moneda;
+  const met=(lbl,val,sub)=>`<div class="metric"><div class="m-lbl">${lbl}</div><div class="m-val" style="font-size:21px">${val}</div><div class="m-sub" style="color:var(--text3)">${sub||"&nbsp;"}</div></div>`;
+  let h="";
+  if(s)h+=met("Saldo en la cuenta",mpFmt(s.total,m),`Disponible ${mpFmt(s.disponible,m)}`);
+  if(r){
+    h+=met(`Ingresos · ${d.dias} días`,mpFmt(r.ingresos,m),`${r.pagosAprobados} pago${r.pagosAprobados===1?"":"s"} aprobado${r.pagosAprobados===1?"":"s"}`);
+    h+=met("Neto recibido",mpFmt(r.neto,m),`Comisiones: ${mpFmt(r.comisiones,m)}`);
+    h+=met("Por liberar",mpFmt(r.porLiberar.monto,m),r.porLiberar.cantidad?`${r.porLiberar.cantidad} pago${r.porLiberar.cantidad===1?"":"s"} sin liberar`:"Nada pendiente");
+  }
+  el.innerHTML=`<div style="margin-bottom:14px">${cab(` <span style="font-weight:400;font-size:11.5px;color:var(--text3)">· leído directo de tu cuenta</span>`)}${h?`<div class="metrics" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin-bottom:0">${h}</div>`:`<p style="font-size:12.5px;color:var(--text3)">Mercado Pago no entregó saldo ni pagos en este momento.</p>`}</div>`;
+}
+function mpDesdeStr(n){const d=new Date();d.setDate(d.getDate()-(n-1));return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+// Bloque de Mercado Pago dentro de "Finanzas por empresa". No se suma a las ventas registradas para no contar dos veces.
+function mpFinHTML(emp){
+  if(DEMO||!TOKEN||!MP_CONECTADO||mpEstadoEmp()!=="empresa"||emp.id!==MP_EMP||!MP_DATOS||!MP_DATOS.resumen)return"";
+  const d=MP_DATOS,r=d.resumen,m=d.moneda,clp=!m||m==="CLP";
+  const celda=(l,v,c)=>`<div><div class="fin-stat-lbl">${l}</div><div class="fin-stat-val"${c?` style="color:${c}"`:""}>${v}</div></div>`;
+  let celdas=celda("Ingresos",mpFmt(r.ingresos,m))+celda("Neto recibido",mpFmt(r.neto,m));
+  if(clp){
+    const desde=mpDesdeStr(d.dias),hasta=gHoy();
+    const gas=GASTOS.filter(g=>g.empresa===emp.id&&g.fecha>=desde&&g.fecha<=hasta).reduce((s,g)=>s+(g.monto||0),0);
+    const res=r.neto-gas;
+    celdas+=celda("Gastos anotados",mpFmt(gas,m),"var(--amber)")+celda("Resultado estimado",mpFmt(res,m),res>=0?"var(--green)":"var(--red)");
+  }
+  return `<div style="margin-top:1rem;padding-top:1rem;border-top:.5px solid var(--border)"><div style="font-size:12.5px;font-weight:500;margin-bottom:.7rem">Mercado Pago · últimos ${d.dias} días <span style="font-weight:400;color:var(--text3)">(leído directo de tu cuenta)</span></div><div class="fin-stats">${celdas}</div><div style="font-size:11px;color:var(--text3);margin-top:8px">No se suma a las ventas de arriba para no contar dos veces lo que ya registraste en Vencio.${clp?" El resultado estimado es el neto recibido menos los gastos que anotaste en Gastos.":""}</div></div>`;
 }
 
 async function mpCargarEstado(){if(DEMO||!TOKEN)return;ppCargarEstado();try{const e=await api("/mp/estado");MP_CONECTADO=e.conectado;MP_PROPIETARIO=!!e.propietario;MP_EMP=e.empresaId==null?null:e.empresaId;MP_DECIDIDA=!!e.decidida;renderIntegraciones();mpCargarCuenta();}catch(e){}}
@@ -2173,7 +2220,7 @@ function renderFinanzas(){
     const porTipo={};v.forEach(x=>{porTipo[x.tipo]=(porTipo[x.tipo]||0)+x.monto;});
     let barH="",legH="";
     if(ing>0){Object.entries(porTipo).forEach(([tipo,monto])=>{const pct=Math.round(monto/ing*100);barH+=`<div style="width:${pct}%;height:100%;background:${TIPO_COLOR[tipo]}"></div>`;legH+=`<span style="display:flex;align-items:center;gap:5px"><span class="fin-dot" style="background:${TIPO_COLOR[tipo]}"></span>${TIPO_LABEL[tipo]} (${fmt(monto)})</span>`;});}
-    h+=`<div class="fin-card"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.1rem;flex-wrap:wrap;gap:8px"><div style="font-size:15px;font-weight:500">${esc(emp.nombre)}</div><span class="badge ${cls}">Margen ${mar}%</span></div><div class="fin-stats"><div><div class="fin-stat-lbl">Ingresos</div><div class="fin-stat-val">${fmt(ing)}</div></div><div><div class="fin-stat-lbl">Costos</div><div class="fin-stat-val" style="color:var(--amber)">${fmt(cos)}</div></div><div><div class="fin-stat-lbl">Ganancia neta</div><div class="fin-stat-val" style="color:var(--green)">${fmt(gan)}</div></div><div><div class="fin-stat-lbl">Ventas</div><div class="fin-stat-val">${v.length}</div></div></div><div class="fin-bar-row">${barH||`<div style="width:100%;height:100%;background:var(--border2)"></div>`}</div><div class="fin-legend">${legH||`<span style="color:var(--text3)">Sin ventas registradas</span>`}</div></div>`;
+    h+=`<div class="fin-card"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.1rem;flex-wrap:wrap;gap:8px"><div style="font-size:15px;font-weight:500">${esc(emp.nombre)}</div><span class="badge ${cls}">Margen ${mar}%</span></div><div class="fin-stats"><div><div class="fin-stat-lbl">Ingresos</div><div class="fin-stat-val">${fmt(ing)}</div></div><div><div class="fin-stat-lbl">Costos</div><div class="fin-stat-val" style="color:var(--amber)">${fmt(cos)}</div></div><div><div class="fin-stat-lbl">Ganancia neta</div><div class="fin-stat-val" style="color:var(--green)">${fmt(gan)}</div></div><div><div class="fin-stat-lbl">Ventas</div><div class="fin-stat-val">${v.length}</div></div></div><div class="fin-bar-row">${barH||`<div style="width:100%;height:100%;background:var(--border2)"></div>`}</div><div class="fin-legend">${legH||`<span style="color:var(--text3)">Sin ventas registradas</span>`}</div>${mpFinHTML(emp)}</div>`;
   });
   const elE=document.getElementById("fin-empresas");if(elE)elE.innerHTML=h;
 }
