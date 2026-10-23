@@ -2052,11 +2052,13 @@ function mpFinHTML(emp){
 }
 
 async function mpCargarEstado(){if(DEMO||!TOKEN)return;ppCargarEstado();try{const e=await api("/mp/estado");MP_CONECTADO=e.conectado;MP_PROPIETARIO=!!e.propietario;MP_EMP=e.empresaId==null?null:e.empresaId;MP_DECIDIDA=!!e.decidida;renderIntegraciones();mpCargarCuenta();}catch(e){}}
+// Espera (hasta ms) a que termine de cargarse la sesión guardada; así la pregunta de empresa se arma con las empresas del usuario y no con las de ejemplo.
+async function esperarApp(ms){const t=Date.now();while(!APP_LISTA&&SESION_PENDIENTE&&Date.now()-t<(ms||10000))await new Promise(r=>setTimeout(r,100));return APP_LISTA;}
 async function revisarMP(){
   const p=new URLSearchParams(location.search),q=p.get("mp");if(!q)return;
   const motivo=(p.get("motivo")||"").slice(0,200);
   history.replaceState(null,"",location.pathname+location.hash);
-  if(q==="ok"){alert("✓ Tu cuenta de Mercado Pago quedó conectada.");await mpCargarEstado();if(MP_CONECTADO&&!MP_DECIDIDA)mpAbrirEmpresa();}
+  if(q==="ok"){alert("✓ Tu cuenta de Mercado Pago quedó conectada.");await esperarApp();await mpCargarEstado();if(APP_LISTA&&MP_CONECTADO&&!MP_DECIDIDA)mpAbrirEmpresa();}
   else alert("No se pudo conectar tu cuenta de Mercado Pago."+(motivo?"\n\nMotivo: "+motivo:"")+"\n\nIntenta de nuevo.");
 }
 
@@ -2713,7 +2715,7 @@ function urlCon(hash){return location.pathname+location.search+hash;}
 function sidebarItem(sec){return document.querySelector('.ni[onclick*="\''+sec+'\'"]');}
 function setVista(v,titulo){
   document.documentElement.setAttribute('data-vista',v);
-  document.documentElement.setAttribute('data-sesion',APP_LISTA?'1':'0');
+  document.documentElement.setAttribute('data-sesion',APP_LISTA&&!DEMO?'1':'0');   // la cuenta demo no es una sesión: en la portada se ve como visita (con "Iniciar sesión" y "Crear cuenta")
   document.title=TITULOS[titulo||v]||TITULOS.landing;
 }
 function irA(ruta){
@@ -2728,6 +2730,7 @@ function pintarRuta(){
   const r=rutaHash(),secs=Object.keys(TB);
   if(r===''&&location.hash)history.replaceState(null,'',urlCon(''));   // el inicio siempre con la dirección limpia (sin '#/' sobrante)
   if(APP_LISTA){
+    if(DEMO&&(r==='entrar'||r==='registro')){location.reload();return;}   // salir de la demo para iniciar sesión o crear cuenta: se recarga la página para que no quede nada de los datos de ejemplo
     if(secs.includes(r)){setVista('app');mostrarSeccion(sidebarItem(r),r);return;}
     if(r===''){setVista('landing');window.scrollTo(0,0);return;}   // con sesión también se puede volver a la portada
     history.replaceState(null,'',urlCon('#/dashboard'));          // #/entrar, #/registro o algo desconocido → al panel
